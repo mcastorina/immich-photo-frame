@@ -1,4 +1,4 @@
-# Digital Photo Frame
+# Immich Photo Frame
 
 A desktop application to display photos pulled from an
 [immich](https://immich.app/) server.
@@ -7,7 +7,7 @@ A desktop application to display photos pulled from an
 ## Build
 
 ```bash
-go build -o dpf .
+go build -o ipf .
 ```
 
 ## Configure
@@ -21,5 +21,5 @@ export IMMICH_API_KEY
 ## Run
 
 ```bash
-./dpf
+./ipf
 ```

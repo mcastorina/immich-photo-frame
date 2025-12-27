@@ -1,4 +1,4 @@
-module digital-photo-frame
+module immich-photo-frame
 
 go 1.25.0
 

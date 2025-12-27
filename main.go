@@ -1,7 +1,7 @@
 package main
 
 import (
-	"digital-photo-frame/internal/immich"
+	"immich-photo-frame/internal/immich"
 	"sync"
 	"time"
 
