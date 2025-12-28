@@ -61,6 +61,12 @@ func LoadConfig() (*Config, error) {
 	return &conf, nil
 }
 
-func InitApp(Config) (*App, error) {
+func InitApp(conf Config) (*App, error) {
+	client := cache.NewClient(
+		cache.WithRemote(conf.Immich),
+		cache.WithLocalStorage(conf.LocalStorage),
+		cache.WithInMemoryCache(conf.InMemoryCache),
+	)
+	slog.Info("created immich client", "diagnostics", client.Diagnostics())
 	return nil, errors.New("unimplemented")
 }
