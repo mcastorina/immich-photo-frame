@@ -29,7 +29,7 @@ func WithInMemoryCache(conf InMemoryConfig) clientOpt {
 		if !conf.UseInMemoryCache {
 			return
 		}
-		panic("not implemented")
+		c.cache = newInMemoryCacheClient(conf)
 	}
 }
 
@@ -38,7 +38,7 @@ func WithLocalStorage(conf LocalConfig) clientOpt {
 		if !conf.UseLocalStorage {
 			return
 		}
-		panic("not implemented")
+		c.local = newLocalStorageClient(conf)
 	}
 }
 
