@@ -80,7 +80,7 @@ func NewClient(conf Config) Client {
 	transport := immichTransport{
 		transformF: func(r *http.Request) {
 			// Add the API header credentials.
-			r.Header.Add("X-API-Key", conf.ImmichAPIEndpoint)
+			r.Header.Add("X-API-Key", conf.ImmichAPIKey)
 			// Prefix the API endpoint in the new URL.
 			immichAPI := *apiEndpointURI
 			immichAPI.Path = path.Join(immichAPI.Path, r.URL.Path)
