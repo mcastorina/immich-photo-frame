@@ -24,6 +24,29 @@ type Client struct {
 	*http.Client
 }
 
+// Config holds configuration values for configuring the immich client.
+//
+// It is organized to take advantage of TOML parsing, however this package does
+// not handle parsing and has no expectation on how it will be initialized.
+type Config struct {
+	// ImmichAPIEndpoint is the URL for accessing the immich API.
+	ImmichAPIEndpoint string
+	// ImmichAPIKey should ideally not be written to disk un-encrypted,
+	// however, for ease of "deployment" I'm going to allow it.
+	ImmichAPIKey string
+}
+
+// HydrateFromEnv overwrites any values in Config with their associated
+// environment variable value. Environment variables take precedence.
+func (c *Config) HydrateFromEnv() {
+	if v, ok := os.LookupEnv("IMMICH_API_ENDPOINT"); ok {
+		c.ImmichAPIEndpoint = v
+	}
+	if v, ok := os.LookupEnv("IMMICH_API_KEY"); ok {
+		c.ImmichAPIKey = v
+	}
+}
+
 // immichTransport is a custom http.Transport that rewrites the http.Request
 // via transformF.
 type immichTransport struct {
@@ -39,17 +62,16 @@ func (i immichTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 // NewClientFromEnv initializes a Client using the IMMICH_API_ENDPOINT and
 // IMMICH_API_KEY environment variables.
 func NewClientFromEnv() Client {
-	return NewClient(
-		os.Getenv("IMMICH_API_ENDPOINT"),
-		os.Getenv("IMMICH_API_KEY"),
-	)
+	conf := Config{}
+	conf.HydrateFromEnv()
+	return NewClient(conf)
 }
 
 // NewClient initializes a Client with the provided API endpoint and API key.
 // Use [IsConnected] to check if the Client was properly configured.
-func NewClient(apiEndpoint string, apiKey string) Client {
+func NewClient(conf Config) Client {
 	// Canonicalize apiEndpoint.
-	apiEndpointURI, _ := url.Parse(apiEndpoint)
+	apiEndpointURI, _ := url.Parse(conf.ImmichAPIEndpoint)
 	if apiEndpointURI.Path != "/api" {
 		apiEndpointURI.Path = "/api"
 	}
@@ -58,7 +80,7 @@ func NewClient(apiEndpoint string, apiKey string) Client {
 	transport := immichTransport{
 		transformF: func(r *http.Request) {
 			// Add the API header credentials.
-			r.Header.Add("X-API-Key", apiKey)
+			r.Header.Add("X-API-Key", conf.ImmichAPIEndpoint)
 			// Prefix the API endpoint in the new URL.
 			immichAPI := *apiEndpointURI
 			immichAPI.Path = path.Join(immichAPI.Path, r.URL.Path)
