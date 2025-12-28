@@ -3,6 +3,7 @@ package app
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/BurntSushi/toml"
@@ -25,7 +26,13 @@ type App struct{}
 
 func Run() error {
 	conf, err := LoadConfig()
-	fmt.Println(conf, err)
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+	_, err = InitApp(*conf)
+	if err != nil {
+		return fmt.Errorf("failed to init app: %w", err)
+	}
 
 	return nil
 }
