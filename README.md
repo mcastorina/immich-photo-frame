@@ -13,10 +13,14 @@ go build -o ipf .
 ## Configure
 
 The application is configured via TOML. By default it looks for a `config.toml`
-file in current working directory, however if the `IMMICH_PHOTO_FRAME_CONFIG`
-environment variable is set, it uses that.
+file in the current working directory, however if the
+`IMMICH_PHOTO_FRAME_CONFIG` environment variable is set, it uses that.
 
 ```toml
+[app]
+immichAlbums = ["Photo Frame"]
+imageDelay = "2s"
+
 [remote]
 immichAPIEndpoint = "http://immich:2283"
 immichAPIKey = "consider using IMMICH_API_KEY env var"
@@ -31,7 +35,16 @@ useInMemoryCache  = true
 inMemoryCacheSize = "512 MB"
 ```
 
-### Immich
+### App
+
+The `app` section configures how the application will run.
+
+| key | type | default | description |
+| --- | --- | --- | --- |
+| `immichAlbums` | []string | All albums found | List of the immich albums to use |
+| `imageDelay` | string | `5s` | Amount of time between displaying images (in human-readable text) |
+
+### Remote
 
 The `remote` section configures connecting to the immich server. These values
 can also be configured via environment variables, which take precedence and are

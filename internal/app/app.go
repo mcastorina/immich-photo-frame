@@ -127,8 +127,11 @@ func LoadConfig() (*Config, error) {
 		return nil, err
 	}
 
-	// TOML-decode config file contents.
+	// Set config defaults.
 	var conf Config
+	conf.App.ImageDelay = 5 * time.Second
+
+	// TOML-decode config file contents.
 	if _, err := toml.DecodeFile(configFilePath, &conf); err != nil {
 		return nil, err
 	}
