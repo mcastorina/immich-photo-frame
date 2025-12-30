@@ -1,6 +1,10 @@
-package cache
+package immich
 
-import "github.com/dustin/go-humanize"
+import (
+	"github.com/dustin/go-humanize"
+
+	"immich-photo-frame/internal/immich/api"
+)
 
 // Config holds configuration values for caching behavior.
 //
@@ -10,21 +14,18 @@ type Config struct {
 	// Local storage to persist data across restarts. Assets will be
 	// fetched from local storage first before reaching out to the immich
 	// server.
-	//
-	// Currently unused.
 	LocalStorage LocalConfig
 
 	// In memory cache for assets, either loaded from persistent storage or
 	// the immich server.
-	//
-	// Currently unused.
 	InMemoryCache InMemoryConfig
+
+	// Remote configuration for connecting to the immich API.
+	Remote api.Config
 }
 
 // Local storage to persist data across restarts. Assets will be fetched from
 // local storage first before reaching out to the immich server.
-//
-// Currently unused.
 type LocalConfig struct {
 	UseLocalStorage  bool
 	LocalStorageSize HumanBytes
@@ -33,8 +34,6 @@ type LocalConfig struct {
 
 // In memory cache for assets, either loaded from persistent storage or the
 // immich server.
-//
-// Currently unused.
 type InMemoryConfig struct {
 	UseInMemoryCache  bool
 	InMemoryCacheSize HumanBytes

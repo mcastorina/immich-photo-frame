@@ -17,7 +17,7 @@ file in current working directory, however if the `IMMICH_PHOTO_FRAME_CONFIG`
 environment variable is set, it uses that.
 
 ```toml
-[immich]
+[remote]
 immichAPIEndpoint = "http://immich:2283"
 immichAPIKey = "consider using IMMICH_API_KEY env var"
 
@@ -33,7 +33,7 @@ inMemoryCacheSize = "512 MB"
 
 ### Immich
 
-The `immich` section configures connecting to the immich server. These values
+The `remote` section configures connecting to the immich server. These values
 can also be configured via environment variables, which take precedence and are
 generally considered more secure.
 

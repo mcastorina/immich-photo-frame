@@ -1,115 +1,170 @@
 package immich
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
-	"net/http"
-	"net/url"
-	"os"
-	"path"
+	"log/slog"
+
+	"immich-photo-frame/internal/immich/api"
 )
 
-// Client provides a raw HTTP client for accessing the immich API. All requests
-// will get rewritten to the API endpoint with authorization, so only the path
-// is required for requests.
-//
-// Example:
-//
-// ```
-// client := NewClientFromEnv()
-// resp, err := client.Get("/users/me")
-// ```
+// Client provides an API for retrieving immich albums and assets with seamless
+// in-memory and local storage caching.
 type Client struct {
-	*http.Client
+	cache  rwClient
+	local  rwClient
+	remote remoteClient
 }
 
-// Config holds configuration values for configuring the immich client.
-//
-// It is organized to take advantage of TOML parsing, however this package does
-// not handle parsing and has no expectation on how it will be initialized.
-type Config struct {
-	// ImmichAPIEndpoint is the URL for accessing the immich API.
-	ImmichAPIEndpoint string
-	// ImmichAPIKey should ideally not be written to disk un-encrypted,
-	// however, for ease of "deployment" I'm going to allow it.
-	ImmichAPIKey string
-}
-
-// HydrateFromEnv overwrites any values in Config with their associated
-// environment variable value. Environment variables take precedence.
-func (c *Config) HydrateFromEnv() {
-	if v, ok := os.LookupEnv("IMMICH_API_ENDPOINT"); ok {
-		c.ImmichAPIEndpoint = v
+// GetAsset retrieves an immich asset given its metadata. It first checks the
+// in-memory cache, then local storage, then the remote server. On success, the
+// in-memory cache and (if applicable) the local storage are updated.
+func (c Client) GetAsset(md AssetMetadata) (*Asset, error) {
+	if ass, err := c.cache.GetAsset(md); err == nil {
+		return ass, nil
 	}
-	if v, ok := os.LookupEnv("IMMICH_API_KEY"); ok {
-		c.ImmichAPIKey = v
+	if ass, err := c.local.GetAsset(md); err == nil {
+		_ = c.cache.StoreAsset(ass)
+		return ass, nil
+	}
+	slog.Info("fetching asset from remote", "id", md.ID, "name", md.Name)
+	ass, err := c.remote.GetAsset(md)
+	if err == nil {
+		_ = c.cache.StoreAsset(ass)
+		_ = c.local.StoreAsset(ass)
+	}
+	return ass, err
+}
+
+// GetAlbums retrieves all immich albums. It first checks the in-memory cache,
+// then local storage, then the remote server. On success, the in-memory cache
+// and (if applicable) the local storage are updated.
+func (c Client) GetAlbums() ([]Album, error) {
+	if albums, err := c.cache.GetAlbums(); err == nil {
+		return albums, nil
+	}
+	if albums, err := c.local.GetAlbums(); err == nil {
+		c.cache.StoreAlbums(albums)
+		return albums, nil
+	}
+	slog.Info("fetching albums from remote")
+	albums, err := c.remote.GetAlbums()
+	if err == nil {
+		c.cache.StoreAlbums(albums)
+		c.local.StoreAlbums(albums)
+	}
+	return albums, err
+}
+
+// GetAlbumAssets gets the asset metadata for the given immich album ID. It
+// first checks the in-memory cache, then local storage, then the remote
+// server. On success, the in-memory cache and (if-applicable) the local
+// storage are updates.
+func (c Client) GetAlbumAssets(id AlbumID) ([]AssetMetadata, error) {
+	if assets, err := c.cache.GetAlbumAssets(id); err == nil {
+		return assets, nil
+	}
+	if assets, err := c.local.GetAlbumAssets(id); err == nil {
+		c.cache.StoreAlbumAssets(id, assets)
+		return assets, nil
+	}
+	slog.Info("fetching album asset metadata from remote", "id", id)
+	assets, err := c.remote.GetAlbumAssets(id)
+	if err == nil {
+		c.cache.StoreAlbumAssets(id, assets)
+		c.local.StoreAlbumAssets(id, assets)
+	}
+	return assets, err
+}
+
+// rwClient is a client that can both read and write, typically local clients,
+// not the remote immich server.
+type rwClient interface {
+	readClient
+	writeClient
+}
+
+// readClient is a client that can provide immich albums and assets.
+type readClient interface {
+	GetAsset(md AssetMetadata) (*Asset, error)
+	GetAlbums() ([]Album, error)
+	GetAlbumAssets(id AlbumID) ([]AssetMetadata, error)
+}
+
+// writeClient is a client that can store immich albums and assets.
+type writeClient interface {
+	StoreAsset(asset *Asset) error
+	StoreAlbums(albums []Album) error
+	StoreAlbumAssets(id AlbumID, assets []AssetMetadata) error
+}
+
+// remoteClient is a read-only client with a connection check.
+type remoteClient interface {
+	IsConnected() error
+	readClient
+}
+
+// clientOpt is used for configuring the [Client].
+type clientOpt func(*Client)
+
+// WithInMemoryCache adds an in-memory cache to the Client, if configured. Only
+// one in-memory cache can be configured. If multiple are provided, the last is
+// used.
+func WithInMemoryCache(conf InMemoryConfig) clientOpt {
+	return func(c *Client) {
+		if !conf.UseInMemoryCache {
+			return
+		}
+		c.cache = newInMemoryCacheClient(conf)
 	}
 }
 
-// immichTransport is a custom http.Transport that rewrites the http.Request
-// via transformF.
-type immichTransport struct {
-	transformF func(*http.Request)
+// WithLocalStorage adds a local-storage client, if configured. Only one local
+// storage client can be configured. If multiple are provided, the last is
+// used.
+func WithLocalStorage(conf LocalConfig) clientOpt {
+	return func(c *Client) {
+		if !conf.UseLocalStorage {
+			return
+		}
+		c.local = newLocalStorageClient(conf)
+	}
 }
 
-func (i immichTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	req = req.Clone(req.Context())
-	i.transformF(req)
-	return http.DefaultTransport.RoundTrip(req)
+// WithRemote adds a remote client. Only one remote client can be configured.
+// If multiple are provided, the last is used.
+func WithRemote(conf api.Config) clientOpt {
+	return func(c *Client) {
+		c.remote = api.NewClient(conf)
+	}
 }
 
-// NewClientFromEnv initializes a Client using the IMMICH_API_ENDPOINT and
-// IMMICH_API_KEY environment variables.
-func NewClientFromEnv() Client {
-	conf := Config{}
-	conf.HydrateFromEnv()
-	return NewClient(conf)
+// NewClient initialized a new client with the provided options. See
+// [WithInMemoryCache], [WithLocalStorage], and [WithRemote].
+func NewClient(opts ...clientOpt) *Client {
+	noop := noopClient{}
+	client := &Client{
+		cache:  noop,
+		local:  noop,
+		remote: noop,
+	}
+	for _, opt := range opts {
+		opt(client)
+	}
+	return client
 }
 
-// NewClient initializes a Client with the provided API endpoint and API key.
-// Use [IsConnected] to check if the Client was properly configured.
-func NewClient(conf Config) Client {
-	// Canonicalize apiEndpoint.
-	apiEndpointURI, _ := url.Parse(conf.ImmichAPIEndpoint)
-	if apiEndpointURI.Path != "/api" {
-		apiEndpointURI.Path = "/api"
-	}
+// noopClient provides a noop implementation for the cache, local, and remote
+// clients.
+type noopClient struct{}
 
-	// Build a custom http.Transport to set the API credentials and host.
-	transport := immichTransport{
-		transformF: func(r *http.Request) {
-			// Add the API header credentials.
-			r.Header.Add("X-API-Key", conf.ImmichAPIKey)
-			// Prefix the API endpoint in the new URL.
-			immichAPI := *apiEndpointURI
-			immichAPI.Path = path.Join(immichAPI.Path, r.URL.Path)
-			r.URL = &immichAPI
-		},
-	}
-	return Client{&http.Client{Transport: transport}}
+func (noopClient) GetAlbumAssets(id AlbumID) ([]AssetMetadata, error) {
+	return nil, errors.New("noop")
 }
-
-// IsConnected performs a sanity check API request to /users/me to verify the
-// Client is configured correctly and the immich server is responsive.
-func (c Client) IsConnected() error {
-	resp, err := c.Get("/users/me")
-	if err != nil && err.Error() == `Get "/users/me": unsupported protocol scheme ""` {
-		return errors.New("misconfigured client: missing immich endpoint")
-	} else if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	// Check the response code.
-	if resp.StatusCode == http.StatusUnauthorized {
-		return errors.New("misconfigured client: invalid immich token")
-	} else if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status code %d", resp.StatusCode)
-	}
-	// Check it's a JSON response.
-	var m map[string]any
-	if err := json.NewDecoder(resp.Body).Decode(&m); err != nil {
-		return err
-	}
-	return nil
+func (noopClient) GetAlbums() ([]Album, error)               { return nil, errors.New("noop") }
+func (noopClient) GetAsset(md AssetMetadata) (*Asset, error) { return nil, errors.New("noop") }
+func (noopClient) IsConnected() error                        { return errors.New("noop") }
+func (noopClient) StoreAlbumAssets(id AlbumID, assets []AssetMetadata) error {
+	return errors.New("noop")
 }
+func (noopClient) StoreAlbums(albums []Album) error { return errors.New("noop") }
+func (noopClient) StoreAsset(asset *Asset) error    { return errors.New("noop") }
