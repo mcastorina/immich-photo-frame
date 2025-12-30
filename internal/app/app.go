@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/app"
 	"github.com/BurntSushi/toml"
 
 	"immich-photo-frame/internal/immich"
@@ -18,44 +21,55 @@ import (
 // This is the primary way to configure the application.
 type Config struct {
 	immich.Config
-	App struct{ ImmichAlbums []string }
+	App struct {
+		ImmichAlbums []string
+		ImageDelay   time.Duration
+	}
 }
 
-type app struct {
-	client *immich.Client
-	conf   Config
+type photoFrame struct {
+	conf     Config
+	client   *immich.Client
+	win      fyne.Window
+	assQueue chan *immich.Asset
 }
 
-func (a *app) run() error {
-	albums, err := a.getConfiguredAlbums()
+func (pf *photoFrame) run() error {
+	albums, err := pf.getConfiguredAlbums()
 	if err != nil {
 		return err
 	}
 	if n := countAssets(albums); n == 0 {
 		return errors.New("no assets found")
 	}
-	iter := NewAssetMetadataIter(a.client, albums)
-	for asset := iter.Next(); asset != nil; asset = iter.Next() {
-		// img, err := a.client.GetAsset(*asset)
-		// if err != nil {
-		// 	slog.Error("failed to get asset", "asset", asset, "error", err)
-		// 	continue
-		// }
-		// a.showImage()
-	}
+	pf.initWindow()
+	go pf.displayWorker()
+	go pf.assetWorker(albums)
+
+	pf.win.ShowAndRun()
 	return nil
 }
 
-func (a *app) getConfiguredAlbums() ([]immich.Album, error) {
+func (pf *photoFrame) initWindow() {
+	pf.win = app.New().NewWindow("immich")
+	pf.win.SetFullScreen(true)
+}
+
+func (pf *photoFrame) getConfiguredAlbums() ([]immich.Album, error) {
 	// Get all albums.
-	allAlbums, err := a.client.GetAlbums()
+	allAlbums, err := pf.client.GetAlbums()
 	if err != nil {
 		return nil, err
 	}
 	slog.Info("found albums", "count", len(allAlbums))
 
+	// If no albums are configured, use all of the ones we found.
+	if len(pf.conf.App.ImmichAlbums) == 0 {
+		return allAlbums, nil
+	}
+
 	// Build set of configured album names.
-	configuredAlbumNames := a.conf.App.ImmichAlbums
+	configuredAlbumNames := pf.conf.App.ImmichAlbums
 	albumNameSet := make(map[string]struct{})
 	for _, album := range configuredAlbumNames {
 		albumNameSet[album] = struct{}{}
@@ -125,7 +139,7 @@ func LoadConfig() (*Config, error) {
 	return &conf, nil
 }
 
-func InitApp(conf Config) (*app, error) {
+func InitApp(conf Config) (*photoFrame, error) {
 	client := immich.NewClient(
 		immich.WithRemote(conf.Remote),
 		immich.WithLocalStorage(conf.LocalStorage),
@@ -133,7 +147,11 @@ func InitApp(conf Config) (*app, error) {
 	)
 	slog.Info("created immich client")
 	slog.Info("client diagnostics", "diagnostics", client.Diagnostics())
-	return &app{client: client, conf: conf}, nil
+	return &photoFrame{
+		client:   client,
+		conf:     conf,
+		assQueue: make(chan *immich.Asset, 10),
+	}, nil
 }
 
 func countAssets(albums []immich.Album) int {
