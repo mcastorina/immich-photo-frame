@@ -9,6 +9,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/theme"
 	"github.com/BurntSushi/toml"
 	_ "github.com/gen2brain/heic"
 
@@ -52,7 +53,10 @@ func (pf *photoFrame) run() error {
 }
 
 func (pf *photoFrame) initWindow() {
-	pf.win = app.New().NewWindow("immich")
+	a := app.New()
+	// TODO: Make a custom theme since DarkTheme is deprecated.
+	a.Settings().SetTheme(theme.DarkTheme())
+	pf.win = a.NewWindow("immich")
 	pf.win.SetFullScreen(true)
 }
 
