@@ -10,6 +10,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"github.com/BurntSushi/toml"
+	_ "github.com/gen2brain/heic"
 
 	"immich-photo-frame/internal/immich"
 )
