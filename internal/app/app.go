@@ -3,6 +3,7 @@ package app
 import (
 	"errors"
 	"fmt"
+	"image"
 	"log/slog"
 	"os"
 	"time"
@@ -33,7 +34,7 @@ type photoFrame struct {
 	conf     Config
 	client   *immich.Client
 	win      fyne.Window
-	assQueue chan *immich.Asset
+	imgQueue chan image.Image
 }
 
 func (pf *photoFrame) run() error {
@@ -159,7 +160,7 @@ func InitApp(conf Config) (*photoFrame, error) {
 	return &photoFrame{
 		client:   client,
 		conf:     conf,
-		assQueue: make(chan *immich.Asset, 10),
+		imgQueue: make(chan image.Image, 10),
 	}, nil
 }
 

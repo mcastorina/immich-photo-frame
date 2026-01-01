@@ -5,6 +5,7 @@ go 1.25.0
 require (
 	fyne.io/fyne/v2 v2.7.1
 	github.com/BurntSushi/toml v1.5.0
+	github.com/disintegration/imaging v1.6.2
 	github.com/dustin/go-humanize v1.0.1
 	github.com/gen2brain/heic v0.4.8
 	github.com/hashicorp/golang-lru/v2 v2.0.7

@@ -1,11 +1,14 @@
 package app
 
 import (
+	"bytes"
+	"image"
 	"log/slog"
 	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
+	"github.com/disintegration/imaging"
 
 	"immich-photo-frame/internal/immich"
 )
@@ -30,43 +33,22 @@ func (pf *photoFrame) displayWorker() {
 	})
 
 	ticker := time.NewTicker(pf.conf.App.ImageDelay)
-	pf.displayAsset(img, pf.getNextAsset())
+	pf.displayAsset(img, <-pf.imgQueue)
 	for {
 		select {
 		case <-ticker.C:
 		case _ = <-keyPress:
 			ticker.Reset(pf.conf.App.ImageDelay)
 		}
-		ass := pf.getNextAsset()
-		pf.displayAsset(img, ass)
+		pf.displayAsset(img, <-pf.imgQueue)
 	}
 }
 
-func (pf *photoFrame) displayAsset(img *canvas.Image, ass *immich.Asset) {
+func (pf *photoFrame) displayAsset(img *canvas.Image, content image.Image) {
 	fyne.DoAndWait(func() {
-		slog.Info("displaying image",
-			"name", ass.Meta.Name,
-			"id", ass.Meta.ID,
-		)
-		img.Resource = ass
+		img.Image = content
 		img.Refresh()
 	})
-}
-
-// getNextAsset gets the next asset from the asset queue. Currently only IMAGE
-// assets are supported, so all others are skipped. This method blocks until a
-// valid asset is found.
-func (pf *photoFrame) getNextAsset() *immich.Asset {
-	for {
-		ass := <-pf.assQueue
-		if ass.Meta.Type == "IMAGE" {
-			return ass
-		}
-		slog.Warn("unsupported asset type, skipping",
-			"type", ass.Meta.Type,
-			"id", ass.Meta.ID,
-		)
-	}
 }
 
 // assetWorker iterates through the albums and assets and puts them on the
@@ -85,7 +67,15 @@ func (pf *photoFrame) assetWorker(albums []immich.Album) {
 					slog.Error("failed to load asset", "asset", assMeta, "error", err)
 					continue
 				}
-				pf.assQueue <- ass
+
+				img, _, err := image.Decode(bytes.NewReader(ass.Data))
+				if err != nil {
+					slog.Error("failed to decode image", "asset", assMeta, "error", err)
+					continue
+				}
+				img = imaging.Resize(img, 800, 0, imaging.Lanczos)
+
+				pf.imgQueue <- img
 			}
 		}
 
