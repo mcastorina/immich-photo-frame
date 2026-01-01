@@ -20,6 +20,7 @@ file in the current working directory, however if the
 [app]
 immichAlbums = ["Photo Frame"]
 imageDelay = "2s"
+imageScale = 0.6
 
 [remote]
 immichAPIEndpoint = "http://immich:2283"
@@ -43,6 +44,7 @@ The `app` section configures how the application will run.
 | --- | --- | --- | --- |
 | `immichAlbums` | []string | All albums found | List of the immich albums to use |
 | `imageDelay` | string | `5s` | Amount of time between displaying images (in human-readable text) |
+| `imageScale` | float | `0.75` | Value between 0 and 1 for scaling the image (higher values for better resolution) |
 
 ### Remote
 

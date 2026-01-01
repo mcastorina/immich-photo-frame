@@ -73,7 +73,9 @@ func (pf *photoFrame) assetWorker(albums []immich.Album) {
 					slog.Error("failed to decode image", "asset", assMeta, "error", err)
 					continue
 				}
-				img = imaging.Resize(img, 800, 0, imaging.Lanczos)
+				winHeight := pf.win.Canvas().Size().Height
+				resizeHeight := int(winHeight * pf.conf.App.ImageScale)
+				img = imaging.Resize(img, 0, resizeHeight, imaging.Lanczos)
 
 				pf.imgQueue <- img
 			}

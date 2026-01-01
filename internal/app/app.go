@@ -27,6 +27,7 @@ type Config struct {
 	App struct {
 		ImmichAlbums []string
 		ImageDelay   time.Duration
+		ImageScale   float32
 	}
 }
 
@@ -137,6 +138,7 @@ func LoadConfig() (*Config, error) {
 	// Set config defaults.
 	var conf Config
 	conf.App.ImageDelay = 5 * time.Second
+	conf.App.ImageScale = 0.75
 
 	// TOML-decode config file contents.
 	if _, err := toml.DecodeFile(configFilePath, &conf); err != nil {
@@ -145,6 +147,14 @@ func LoadConfig() (*Config, error) {
 
 	// Load values from environment variables.
 	conf.Remote.HydrateFromEnv()
+
+	// Validate config values.
+	if conf.App.ImageScale <= 0 || conf.App.ImageScale > 1 {
+		slog.Warn("invalid imageScale value, resetting to default",
+			"error", "expected a value between 0 and 1",
+		)
+		conf.App.ImageScale = 0.75
+	}
 
 	return &conf, nil
 }
