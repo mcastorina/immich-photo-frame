@@ -63,6 +63,9 @@ func (c Client) GetAsset(md AssetMetadata) (*Asset, error) {
 
 	defer resp.Body.Close()
 	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Asset{
 		Meta: md,
