@@ -12,24 +12,23 @@ import (
 
 // displayWorker pulls from the asset queue every 3s and displays the image.
 func (pf *photoFrame) displayWorker() {
-	ticker := time.NewTicker(pf.conf.App.ImageDelay)
-	pf.displayNextAsset()
-	for range ticker.C {
-		pf.displayNextAsset()
-	}
-}
+	img := canvas.NewImageFromResource(nil)
+	img.FillMode = canvas.ImageFillContain
+	img.ScaleMode = canvas.ImageScaleSmooth
+	pf.win.SetContent(img)
 
-func (pf *photoFrame) displayNextAsset() {
-	ass := pf.getNextAsset()
-	fyne.Do(func() {
-		img := canvas.NewImageFromResource(ass)
-		img.FillMode = canvas.ImageFillContain
-		slog.Info("displaying image",
-			"name", ass.Meta.Name,
-			"id", ass.Meta.ID,
-		)
-		pf.win.SetContent(img)
-	})
+	for {
+		ass := pf.getNextAsset()
+		fyne.DoAndWait(func() {
+			slog.Info("displaying image",
+				"name", ass.Meta.Name,
+				"id", ass.Meta.ID,
+			)
+			img.Resource = ass
+			img.Refresh()
+		})
+		time.Sleep(pf.conf.App.ImageDelay)
+	}
 }
 
 // getNextAsset gets the next asset from the asset queue. Currently only IMAGE
