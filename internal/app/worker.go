@@ -17,18 +17,40 @@ func (pf *photoFrame) displayWorker() {
 	img.ScaleMode = canvas.ImageScaleSmooth
 	pf.win.SetContent(img)
 
+	keyPress := make(chan fyne.KeyName, 10)
+	pf.win.Canvas().SetOnTypedKey(func(ke *fyne.KeyEvent) {
+		switch ke.Name {
+		case fyne.KeyRight:
+			// Non-blocking channel write.
+			select {
+			case keyPress <- ke.Name:
+			default:
+			}
+		}
+	})
+
+	ticker := time.NewTicker(pf.conf.App.ImageDelay)
+	pf.displayAsset(img, pf.getNextAsset())
 	for {
+		select {
+		case <-ticker.C:
+		case _ = <-keyPress:
+			ticker.Reset(pf.conf.App.ImageDelay)
+		}
 		ass := pf.getNextAsset()
-		fyne.DoAndWait(func() {
-			slog.Info("displaying image",
-				"name", ass.Meta.Name,
-				"id", ass.Meta.ID,
-			)
-			img.Resource = ass
-			img.Refresh()
-		})
-		time.Sleep(pf.conf.App.ImageDelay)
+		pf.displayAsset(img, ass)
 	}
+}
+
+func (pf *photoFrame) displayAsset(img *canvas.Image, ass *immich.Asset) {
+	fyne.DoAndWait(func() {
+		slog.Info("displaying image",
+			"name", ass.Meta.Name,
+			"id", ass.Meta.ID,
+		)
+		img.Resource = ass
+		img.Refresh()
+	})
 }
 
 // getNextAsset gets the next asset from the asset queue. Currently only IMAGE
