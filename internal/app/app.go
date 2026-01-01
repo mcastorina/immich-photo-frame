@@ -56,6 +56,7 @@ func (pf *photoFrame) initWindow() {
 	a := app.New()
 	// TODO: Make a custom theme since DarkTheme is deprecated.
 	a.Settings().SetTheme(theme.DarkTheme())
+	a.Driver().SetDisableScreenBlanking(true)
 	pf.win = a.NewWindow("immich")
 	pf.win.SetFullScreen(true)
 }
