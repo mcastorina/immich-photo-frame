@@ -5,6 +5,8 @@ import (
 	"log/slog"
 
 	"immich-photo-frame/internal/immich/api"
+
+	"github.com/dustin/go-humanize"
 )
 
 // Client provides an API for retrieving immich albums and assets with seamless
@@ -26,9 +28,14 @@ func (c Client) GetAsset(md AssetMetadata) (*Asset, error) {
 		_ = c.cache.StoreAsset(ass)
 		return ass, nil
 	}
-	slog.Info("fetching asset from remote", "id", md.ID, "name", md.Name)
+	slog.Debug("fetching asset from remote", "id", md.ID, "name", md.Name)
 	ass, err := c.remote.GetAsset(md)
 	if err == nil {
+		slog.Info("fetched asset from remote",
+			"id", md.ID,
+			"name", md.Name,
+			"size", humanize.Bytes(uint64(len(ass.Data))),
+		)
 		_ = c.cache.StoreAsset(ass)
 		_ = c.local.StoreAsset(ass)
 	}

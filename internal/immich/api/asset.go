@@ -54,9 +54,10 @@ func (c Client) GetAssetPreview(id AssetID) (*AssetMetadata, error) {
 
 // GetAsset gets the asset associated with the metadata.
 //
-// See: https://api.immich.app/endpoints/assets/downloadAsset
+// See: https://api.immich.app/endpoints/assets/viewAsset
 func (c Client) GetAsset(md AssetMetadata) (*Asset, error) {
-	resp, err := c.Get(path.Join("/assets", string(md.ID), "original"))
+	p := path.Join("/assets", string(md.ID), "thumbnail")
+	resp, err := c.Get(p + "?size=preview")
 	if err != nil {
 		return nil, err
 	}

@@ -84,6 +84,7 @@ func NewClient(conf Config) Client {
 			// Prefix the API endpoint in the new URL.
 			immichAPI := *apiEndpointURI
 			immichAPI.Path = path.Join(immichAPI.Path, r.URL.Path)
+			immichAPI.RawQuery = r.URL.RawQuery
 			r.URL = &immichAPI
 		},
 	}

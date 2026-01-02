@@ -100,7 +100,7 @@ func (i inMemoryCache) albumsKey() string          { return "albums" }
 
 // newInMemoryCacheClient initializes an [inMemoryCache] client.
 func newInMemoryCacheClient(conf InMemoryConfig) inMemoryCache {
-	avgAssetSize, _ := humanize.ParseBytes("3 MB")
+	avgAssetSize, _ := humanize.ParseBytes("350 kB")
 	cacheSize := 1
 	if configuredSize := uint64(conf.InMemoryCacheSize) / avgAssetSize; configuredSize > 0 {
 		cacheSize = int(configuredSize)
