@@ -6,9 +6,9 @@ import (
 	"log/slog"
 	"os"
 
-	"immich-photo-frame/internal/immich/api"
-
 	"github.com/dustin/go-humanize"
+
+	"immich-photo-frame/internal/immich/api"
 )
 
 // Client provides an API for retrieving immich albums and assets with seamless
