@@ -12,6 +12,8 @@ type localStorageClient struct {
 	conf LocalConfig
 }
 
+// GetAlbumAssets attempts to retrieve the asset metadata for the given album
+// from the filesystem. An error is returned if the data is not available.
 func (l localStorageClient) GetAlbumAssets(id AlbumID) ([]AssetMetadata, error) {
 	key := albumKey(id)
 	data, err := l.get(key)
@@ -25,6 +27,8 @@ func (l localStorageClient) GetAlbumAssets(id AlbumID) ([]AssetMetadata, error) 
 	return assets, nil
 }
 
+// StoreAlbumAssets attempts to write the asset metadata for the given album to
+// the filesystem.
 func (l localStorageClient) StoreAlbumAssets(id AlbumID, assets []AssetMetadata) error {
 	key := albumKey(id)
 	data, err := json.Marshal(assets)
@@ -34,6 +38,8 @@ func (l localStorageClient) StoreAlbumAssets(id AlbumID, assets []AssetMetadata)
 	return l.store(key, data)
 }
 
+// GetAlbums attempts to retrieve the list of albums from the filesystem. An
+// error is returned if the data is not available.
 func (l localStorageClient) GetAlbums() ([]Album, error) {
 	key := albumsKey()
 	data, err := l.get(key)
@@ -47,6 +53,7 @@ func (l localStorageClient) GetAlbums() ([]Album, error) {
 	return albums, nil
 }
 
+// StoreAlbums attempts to write the list of albums to the filesystem.
 func (l localStorageClient) StoreAlbums(albums []Album) error {
 	key := albumsKey()
 	data, err := json.Marshal(albums)
@@ -56,6 +63,8 @@ func (l localStorageClient) StoreAlbums(albums []Album) error {
 	return l.store(key, data)
 }
 
+// GetAsset attempts to retrieve the asset from the filesystem. An error is
+// returned if the data is not available.
 func (l localStorageClient) GetAsset(md AssetMetadata) (*Asset, error) {
 	key := assetKey(md.ID)
 	data, err := l.get(key)
@@ -68,20 +77,26 @@ func (l localStorageClient) GetAsset(md AssetMetadata) (*Asset, error) {
 	}, nil
 }
 
+// StoreAsset attempts to write the asset to the filesystem.
 func (l localStorageClient) StoreAsset(asset *Asset) error {
 	key := assetKey(asset.Meta.ID)
 	return l.store(key, asset.Data)
 }
 
+// get is a helper method to convert the key to a filepath and read the
+// contents of the file.
 func (l localStorageClient) get(key string) ([]byte, error) {
 	return os.ReadFile(filepath.Join(l.conf.LocalStoragePath, key))
 }
 
+// store is a helper method to convert the key to a filepath and write the data
+// to disk.
 func (l localStorageClient) store(key string, data []byte) error {
 	// TODO: Manage amount of disk space used.
 	return os.WriteFile(filepath.Join(l.conf.LocalStoragePath, key), data, 0644)
 }
 
+// newInMemoryCacheClient initializes a [localStorageClient] client.
 func newLocalStorageClient(conf LocalConfig) localStorageClient {
 	return localStorageClient{conf}
 }
