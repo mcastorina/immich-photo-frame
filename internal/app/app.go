@@ -3,13 +3,13 @@ package app
 import (
 	"errors"
 	"fmt"
-	"image"
 	"log/slog"
 	"os"
 	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/theme"
 	"github.com/BurntSushi/toml"
 	_ "github.com/gen2brain/heic"
@@ -32,10 +32,8 @@ type Config struct {
 }
 
 type photoFrame struct {
-	conf     Config
-	client   *immich.Client
-	win      fyne.Window
-	imgQueue chan image.Image
+	conf   Config
+	client *immich.Client
 }
 
 func (pf *photoFrame) run() error {
@@ -46,21 +44,28 @@ func (pf *photoFrame) run() error {
 	if n := countAssets(albums); n == 0 {
 		return errors.New("no assets found")
 	}
-	pf.initWindow()
-	go pf.displayWorker()
-	go pf.assetWorker(albums)
+	win, img := pf.initWindow()
 
-	pf.win.ShowAndRun()
+	ch := pf.startAssetWorker(albums)
+	go pf.displayWorker(ch, img)
+
+	win.ShowAndRun()
 	return nil
 }
 
-func (pf *photoFrame) initWindow() {
+func (pf *photoFrame) initWindow() (fyne.Window, *canvas.Image) {
 	a := app.New()
 	// TODO: Make a custom theme since DarkTheme is deprecated.
 	a.Settings().SetTheme(theme.DarkTheme())
 	a.Driver().SetDisableScreenBlanking(true)
-	pf.win = a.NewWindow("immich")
-	pf.win.SetFullScreen(true)
+	win := a.NewWindow("immich")
+	win.SetFullScreen(true)
+
+	img := canvas.NewImageFromResource(nil)
+	img.FillMode = canvas.ImageFillContain
+	img.ScaleMode = canvas.ImageScaleSmooth
+	win.SetContent(img)
+	return win, img
 }
 
 func (pf *photoFrame) getConfiguredAlbums() ([]immich.Album, error) {
@@ -168,9 +173,8 @@ func InitApp(conf Config) (*photoFrame, error) {
 	slog.Info("created immich client")
 	slog.Info("client diagnostics", "diagnostics", client.Diagnostics())
 	return &photoFrame{
-		client:   client,
-		conf:     conf,
-		imgQueue: make(chan image.Image, 10),
+		client: client,
+		conf:   conf,
 	}, nil
 }
 
