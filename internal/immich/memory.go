@@ -19,7 +19,7 @@ type inMemoryCache struct {
 // GetAlbumAssets attempts to retrieve the asset metadata for the given album
 // from the cache. An error is returned if the data is not available.
 func (i inMemoryCache) GetAlbumAssets(id AlbumID) ([]AssetMetadata, error) {
-	key := i.albumKey(id)
+	key := albumKey(id)
 	val, err := i.get(key)
 	if err != nil {
 		return nil, err
@@ -33,7 +33,7 @@ func (i inMemoryCache) GetAlbumAssets(id AlbumID) ([]AssetMetadata, error) {
 
 // StoreAlbumAssets writes the asset metadata for the given album to the cache.
 func (i inMemoryCache) StoreAlbumAssets(id AlbumID, assets []AssetMetadata) error {
-	key := i.albumKey(id)
+	key := albumKey(id)
 	i.Add(key, assets)
 	return nil
 }
@@ -41,7 +41,7 @@ func (i inMemoryCache) StoreAlbumAssets(id AlbumID, assets []AssetMetadata) erro
 // GetAlbums attempts to retrieve the list of albums from the cache. An error
 // is returned if the data is not available.
 func (i inMemoryCache) GetAlbums() ([]Album, error) {
-	key := i.albumsKey()
+	key := albumsKey()
 	val, err := i.get(key)
 	if err != nil {
 		return nil, err
@@ -55,7 +55,7 @@ func (i inMemoryCache) GetAlbums() ([]Album, error) {
 
 // StoreAlbums writes the list of albums to the cache.
 func (i inMemoryCache) StoreAlbums(albums []Album) error {
-	key := i.albumsKey()
+	key := albumsKey()
 	i.Add(key, albums)
 	return nil
 }
@@ -63,7 +63,7 @@ func (i inMemoryCache) StoreAlbums(albums []Album) error {
 // GetAsset attempts to retrieve the asset from the cache. An error is returned
 // if the data is not available.
 func (i inMemoryCache) GetAsset(md AssetMetadata) (*Asset, error) {
-	key := i.assetKey(md.ID)
+	key := assetKey(md.ID)
 	val, err := i.get(key)
 	if err != nil {
 		return nil, err
@@ -78,7 +78,7 @@ func (i inMemoryCache) GetAsset(md AssetMetadata) (*Asset, error) {
 // StoreAsset writes the asset to the cache.
 func (i inMemoryCache) StoreAsset(asset *Asset) error {
 	// TODO: Evict when cache size > configured size.
-	key := i.assetKey(asset.Meta.ID)
+	key := assetKey(asset.Meta.ID)
 	i.Add(key, asset)
 	return nil
 }
@@ -92,11 +92,6 @@ func (i inMemoryCache) get(key string) (any, error) {
 	}
 	return v, nil
 }
-
-// Helper methods for generating keys.
-func (i inMemoryCache) assetKey(id AssetID) string { return fmt.Sprintf("asset-%s", id) }
-func (i inMemoryCache) albumKey(id AlbumID) string { return fmt.Sprintf("album-%s", id) }
-func (i inMemoryCache) albumsKey() string          { return "albums" }
 
 // newInMemoryCacheClient initializes an [inMemoryCache] client.
 func newInMemoryCacheClient(conf InMemoryConfig) inMemoryCache {

@@ -2,7 +2,9 @@ package immich
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
+	"os"
 
 	"immich-photo-frame/internal/immich/api"
 
@@ -133,6 +135,10 @@ func WithLocalStorage(conf LocalConfig) clientOpt {
 		if !conf.UseLocalStorage {
 			return
 		}
+		if err := os.MkdirAll(conf.LocalStoragePath, 0755); err != nil {
+			slog.Error("could not create local storage directory", "error", err)
+			return
+		}
 		c.local = newLocalStorageClient(conf)
 	}
 }
@@ -159,6 +165,14 @@ func NewClient(opts ...clientOpt) *Client {
 	}
 	return client
 }
+
+// Helper functions for generating keys.
+//
+// Used for both in-memory keys and local storage filenames. They don't need to
+// match across implementations, but it's simpler if it does.
+func assetKey(id AssetID) string { return fmt.Sprintf("asset-%s", id) }
+func albumKey(id AlbumID) string { return fmt.Sprintf("album-%s", id) }
+func albumsKey() string          { return "albums" }
 
 // noopClient provides a noop implementation for the cache, local, and remote
 // clients.
