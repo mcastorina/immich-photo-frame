@@ -28,6 +28,7 @@ type Config struct {
 		ImmichAlbums []string
 		ImageDelay   time.Duration
 		ImageScale   float32
+		HistorySize  int
 	}
 }
 
@@ -45,9 +46,11 @@ func (pf *photoFrame) run() error {
 		return errors.New("no assets found")
 	}
 	win, img := pf.initWindow()
+	keyCh := pf.initKeyBinds(win)
 
-	ch := pf.startAssetWorker(albums)
-	go pf.displayWorker(ch, img)
+	slidesCh := pf.startSlidesWorker(albums)
+	displayCh := pf.startSlideshowWorker(slidesCh, keyCh)
+	pf.startDisplayWorker(img, displayCh)
 
 	win.ShowAndRun()
 	return nil
@@ -66,6 +69,21 @@ func (pf *photoFrame) initWindow() (fyne.Window, *canvas.Image) {
 	img.ScaleMode = canvas.ImageScaleSmooth
 	win.SetContent(img)
 	return win, img
+}
+
+func (pf *photoFrame) initKeyBinds(win fyne.Window) <-chan *fyne.KeyEvent {
+	ch := make(chan *fyne.KeyEvent, 10)
+	win.Canvas().SetOnTypedKey(func(ke *fyne.KeyEvent) {
+		switch ke.Name {
+		case fyne.KeyRight, fyne.KeyLeft:
+			// Non-blocking channel write.
+			select {
+			case ch <- ke:
+			default:
+			}
+		}
+	})
+	return ch
 }
 
 func (pf *photoFrame) getConfiguredAlbums() ([]immich.Album, error) {
@@ -144,6 +162,7 @@ func LoadConfig() (*Config, error) {
 	var conf Config
 	conf.App.ImageDelay = 5 * time.Second
 	conf.App.ImageScale = 0.75
+	conf.App.HistorySize = 10
 
 	// TOML-decode config file contents.
 	if _, err := toml.DecodeFile(configFilePath, &conf); err != nil {
@@ -162,6 +181,12 @@ func LoadConfig() (*Config, error) {
 			"error", "expected a value between 0 and 1",
 		)
 		conf.App.ImageScale = 0.75
+	}
+	if conf.App.HistorySize < 0 {
+		slog.Warn("invalid historySize value, setting to 0",
+			"error", "historySize must be at least 0",
+		)
+		conf.App.HistorySize = 0
 	}
 
 	return &conf, nil

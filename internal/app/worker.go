@@ -22,33 +22,70 @@ type decodedAsset struct {
 	img  image.Image
 }
 
-// displayWorker pulls from the asset queue every 3s and displays the image.
-func (pf *photoFrame) displayWorker(ch <-chan decodedAsset, img *canvas.Image) {
-	keyPress := make(chan fyne.KeyName, 10)
-
-	ticker := time.NewTicker(pf.conf.App.ImageDelay)
-	pf.displayAsset(img, <-ch)
-	for {
-		select {
-		case <-ticker.C:
-		case _ = <-keyPress:
-			ticker.Reset(pf.conf.App.ImageDelay)
+func (pf *photoFrame) startSlideshowWorker(slidesCh <-chan decodedAsset, keyCh <-chan *fyne.KeyEvent) <-chan decodedAsset {
+	// displayCh should be unbuffered since it controls when to display the
+	// next image.
+	displayCh := make(chan decodedAsset)
+	go func() {
+		ticker := time.NewTicker(pf.conf.App.ImageDelay)
+		history := make([]decodedAsset, pf.conf.App.HistorySize+1)
+		historyIndex := len(history) - 1
+		next := func() {
+			if historyIndex < len(history)-1 {
+				historyIndex++
+				return
+			}
+			history = append(history, <-slidesCh)
+			history = history[1:]
 		}
-		pf.displayAsset(img, <-ch)
-	}
+		prev := func() {
+			if historyIndex > 0 && history[historyIndex-1].img != nil {
+				historyIndex--
+			}
+		}
+
+		// Initialize history object and display the first image.
+		next()
+		displayCh <- history[historyIndex]
+		for {
+			select {
+			case <-ticker.C:
+				next()
+			case k := <-keyCh:
+				ticker.Reset(pf.conf.App.ImageDelay)
+				switch k.Name {
+				case fyne.KeyRight:
+					next()
+				case fyne.KeyLeft:
+					prev()
+				}
+			}
+			// Send the image to be displayed.
+			displayCh <- history[historyIndex]
+		}
+	}()
+	return displayCh
 }
 
-func (pf *photoFrame) displayAsset(img *canvas.Image, da decodedAsset) {
-	fyne.DoAndWait(func() {
-		slog.Info("displaying image", "name", da.meta.Name, "id", da.meta.ID)
-		img.Image = da.img
-		img.Refresh()
-	})
+// startDisplayWorker starts a goroutine that waits for an asset from assCh and
+// displays it.
+func (pf *photoFrame) startDisplayWorker(img *canvas.Image, assCh <-chan decodedAsset) {
+	go func() {
+		// Wait for something to display.
+		for da := range assCh {
+			// Tell fyne to display it.
+			fyne.DoAndWait(func() {
+				slog.Info("displaying image", "name", da.meta.Name, "id", da.meta.ID)
+				img.Image = da.img
+				img.Refresh()
+			})
+		}
+	}()
 }
 
 // assetWorker iterates through the albums and assets and puts them on the
 // asset queue.
-func (pf *photoFrame) startAssetWorker(albums []immich.Album) <-chan decodedAsset {
+func (pf *photoFrame) startSlidesWorker(albums []immich.Album) <-chan decodedAsset {
 	ch := make(chan decodedAsset, 10)
 	go func() {
 		for {
