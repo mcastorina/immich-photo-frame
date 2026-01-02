@@ -98,5 +98,6 @@ func (l localStorageClient) store(key string, data []byte) error {
 
 // newInMemoryCacheClient initializes a [localStorageClient] client.
 func newLocalStorageClient(conf LocalConfig) localStorageClient {
+	conf.LocalStoragePath = filepath.Clean(conf.LocalStoragePath)
 	return localStorageClient{conf}
 }

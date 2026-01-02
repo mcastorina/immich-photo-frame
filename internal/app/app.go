@@ -154,6 +154,9 @@ func LoadConfig() (*Config, error) {
 	conf.Remote.HydrateFromEnv()
 
 	// Validate config values.
+	if err := conf.LocalStorage.Valid(); err != nil {
+		return nil, err
+	}
 	if conf.App.ImageScale <= 0 || conf.App.ImageScale > 1 {
 		slog.Warn("invalid imageScale value, resetting to default",
 			"error", "expected a value between 0 and 1",

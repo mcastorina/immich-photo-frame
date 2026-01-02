@@ -1,6 +1,9 @@
 package immich
 
 import (
+	"errors"
+	"path/filepath"
+
 	"github.com/dustin/go-humanize"
 
 	"immich-photo-frame/internal/immich/api"
@@ -30,6 +33,17 @@ type LocalConfig struct {
 	UseLocalStorage  bool
 	LocalStorageSize HumanBytes
 	LocalStoragePath string
+}
+
+func (l LocalConfig) Valid() error {
+	if !l.UseLocalStorage {
+		return nil
+	}
+	path := filepath.Clean(l.LocalStoragePath)
+	if !filepath.IsAbs(path) {
+		return errors.New("localStoragePath must be an absolute path")
+	}
+	return nil
 }
 
 // In memory cache for assets, either loaded from persistent storage or the
