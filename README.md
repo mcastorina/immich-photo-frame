@@ -29,8 +29,8 @@ immichAPIKey = "consider using IMMICH_API_KEY env var"
 
 [localStorage]
 useLocalStorage  = false
-localStorageSize = "1337"
-localStoragePath = ""
+localStorageSize = "512 MB"
+localStoragePath = "/tmp/ipf"
 
 [inMemoryCache]
 useInMemoryCache  = true
@@ -69,7 +69,7 @@ immich server is not always available.
 | --- | --- | --- |
 | `useLocalStorage` | bool | Enable storing assets locally |
 | `localStorageSize` | string | Amount of bytes to use for storing assets (in human-readable text) |
-| `localStoragePath` | string | Path to store assets |
+| `localStoragePath` | string | Absolute path to store assets |
 
 ### In-Memory Cache
 
