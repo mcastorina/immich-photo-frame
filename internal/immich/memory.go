@@ -28,13 +28,21 @@ func (i inMemoryCache) GetAlbumAssets(id AlbumID) ([]AssetMetadata, error) {
 	if !ok {
 		return nil, fmt.Errorf("unexpected album asset type: %T", val)
 	}
-	return assets, nil
+
+	// Make a copy so the cache cannot be modified.
+	assetCopy := make([]AssetMetadata, len(assets))
+	copy(assetCopy, assets)
+	return assetCopy, nil
 }
 
 // StoreAlbumAssets writes the asset metadata for the given album to the cache.
 func (i inMemoryCache) StoreAlbumAssets(id AlbumID, assets []AssetMetadata) error {
+	// Make a copy so the cache cannot be modified.
+	assetCopy := make([]AssetMetadata, len(assets))
+	copy(assetCopy, assets)
+
 	key := albumKey(id)
-	i.Add(key, assets)
+	i.Add(key, assetCopy)
 	return nil
 }
 
@@ -50,13 +58,21 @@ func (i inMemoryCache) GetAlbums() ([]Album, error) {
 	if !ok {
 		return nil, fmt.Errorf("unexpected asset type: %T", val)
 	}
-	return albums, nil
+
+	// Make a copy so the cache cannot be modified.
+	albumCopy := make([]Album, len(albums))
+	copy(albumCopy, albums)
+	return albumCopy, nil
 }
 
 // StoreAlbums writes the list of albums to the cache.
 func (i inMemoryCache) StoreAlbums(albums []Album) error {
+	// Make a copy so the cache cannot be modified.
+	albumCopy := make([]Album, len(albums))
+	copy(albumCopy, albums)
+
 	key := albumsKey()
-	i.Add(key, albums)
+	i.Add(key, albumCopy)
 	return nil
 }
 
@@ -72,14 +88,16 @@ func (i inMemoryCache) GetAsset(md AssetMetadata) (*Asset, error) {
 	if !ok {
 		return nil, fmt.Errorf("unexpected asset type: %T", val)
 	}
+	// Let's assume callers will be responsible and not modify ass.Data
 	return ass, nil
 }
 
 // StoreAsset writes the asset to the cache.
-func (i inMemoryCache) StoreAsset(asset *Asset) error {
+func (i inMemoryCache) StoreAsset(ass *Asset) error {
+	// Let's assume callers will be responsible and not modify ass.Data
 	// TODO: Evict when cache size > configured size.
-	key := assetKey(asset.Meta.ID)
-	i.Add(key, asset)
+	key := assetKey(ass.Meta.ID)
+	i.Add(key, ass)
 	return nil
 }
 
