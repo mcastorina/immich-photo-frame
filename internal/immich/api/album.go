@@ -15,6 +15,7 @@ type Album struct {
 	Name        string  `json:"albumName"`
 	Description string  `json:"description"`
 	ID          AlbumID `json:"id"`
+	Order       string  `json:"order"`
 	AssetCount  int     `json:"assetCount"`
 }
 

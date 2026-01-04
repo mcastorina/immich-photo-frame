@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/app"
-	"fyne.io/fyne/v2/canvas"
-	"fyne.io/fyne/v2/theme"
 	"github.com/BurntSushi/toml"
 	_ "github.com/gen2brain/heic"
 
+	"immich-photo-frame/internal/app/controller"
+	"immich-photo-frame/internal/app/controller/planners"
+	"immich-photo-frame/internal/app/display"
 	"immich-photo-frame/internal/immich"
 )
 
@@ -25,12 +25,13 @@ import (
 type Config struct {
 	immich.Config
 	App struct {
-		ImmichAlbums []string
-		ImageDelay   time.Duration
-		ImageScale   float32
-		HistorySize  int
+		ControllerConfig
+		DisplayConfig
 	}
 }
+
+type DisplayConfig = display.Config
+type ControllerConfig = controller.Config
 
 type photoFrame struct {
 	conf   Config
@@ -38,96 +39,25 @@ type photoFrame struct {
 }
 
 func (pf *photoFrame) run() error {
-	albums, err := pf.getConfiguredAlbums()
+	disp := display.New(pf.conf.App.DisplayConfig)
+	ctrl, err := controller.New(pf.conf.App.ControllerConfig, pf.client, disp)
 	if err != nil {
 		return err
 	}
-	if n := countAssets(albums); n == 0 {
-		return errors.New("no assets found")
-	}
-	win, img := pf.initWindow()
-	keyCh := pf.initKeyBinds(win)
 
-	slidesCh := pf.startSlidesWorker(albums)
-	displayCh := pf.startSlideshowWorker(slidesCh, keyCh)
-	pf.startDisplayWorker(img, displayCh)
-
-	win.ShowAndRun()
-	return nil
-}
-
-func (pf *photoFrame) initWindow() (fyne.Window, *canvas.Image) {
-	a := app.New()
-	// TODO: Make a custom theme since DarkTheme is deprecated.
-	a.Settings().SetTheme(theme.DarkTheme())
-	a.Driver().SetDisableScreenBlanking(true)
-	win := a.NewWindow("immich")
-	win.SetFullScreen(true)
-
-	img := canvas.NewImageFromResource(nil)
-	img.FillMode = canvas.ImageFillContain
-	img.ScaleMode = canvas.ImageScaleSmooth
-	win.SetContent(img)
-	return win, img
-}
-
-func (pf *photoFrame) initKeyBinds(win fyne.Window) <-chan *fyne.KeyEvent {
-	ch := make(chan *fyne.KeyEvent, 10)
-	win.Canvas().SetOnTypedKey(func(ke *fyne.KeyEvent) {
+	disp.SetKeyBinds(func(ke *fyne.KeyEvent) {
 		switch ke.Name {
-		case fyne.KeyRight, fyne.KeyLeft:
-			// Non-blocking channel write.
-			select {
-			case ch <- ke:
-			default:
-			}
+		case fyne.KeyRight:
+			ctrl.Next()
+		case fyne.KeyLeft:
+			ctrl.Prev()
 		}
 	})
-	return ch
-}
 
-func (pf *photoFrame) getConfiguredAlbums() ([]immich.Album, error) {
-	// Get all albums.
-	allAlbums, err := pf.client.GetAlbums()
-	if err != nil {
-		return nil, err
-	}
-	slog.Info("found albums", "count", len(allAlbums))
+	go ctrl.Run()
 
-	// If no albums are configured, use all of the ones we found.
-	if len(pf.conf.App.ImmichAlbums) == 0 {
-		return allAlbums, nil
-	}
-
-	// Build set of configured album names.
-	configuredAlbumNames := pf.conf.App.ImmichAlbums
-	albumNameSet := make(map[string]struct{})
-	for _, album := range configuredAlbumNames {
-		albumNameSet[album] = struct{}{}
-	}
-
-	// Iterate through all albums and build a list of the albums that are found in the set.
-	var configuredAlbums []immich.Album
-	foundAlbums := make(map[string]struct{})
-	for _, album := range allAlbums {
-		if _, ok := albumNameSet[album.Name]; ok {
-			slog.Info("found album", "name", album.Name, "id", album.ID, "asset_count", album.AssetCount)
-			configuredAlbums = append(configuredAlbums, album)
-			foundAlbums[album.Name] = struct{}{}
-		}
-	}
-
-	// Log if we didn't find some of the albums that were configured.
-	if len(foundAlbums) != len(albumNameSet) {
-		var albumsMissing []string
-		for albumName := range albumNameSet {
-			if _, ok := foundAlbums[albumName]; !ok {
-				albumsMissing = append(albumsMissing, albumName)
-			}
-		}
-		slog.Warn("some albums not found", "albums_missing", albumsMissing)
-	}
-	return configuredAlbums, nil
+	disp.ShowAndRun()
+	return nil
 }
 
 func Run() error {
@@ -163,6 +93,7 @@ func LoadConfig() (*Config, error) {
 	conf.App.ImageDelay = 5 * time.Second
 	conf.App.ImageScale = 0.75
 	conf.App.HistorySize = 10
+	conf.App.PlanAlgorithm.PlanIter = &planners.Sequential{}
 
 	// TOML-decode config file contents.
 	if _, err := toml.DecodeFile(configFilePath, &conf); err != nil {
@@ -204,12 +135,4 @@ func InitApp(conf Config) (*photoFrame, error) {
 		client: client,
 		conf:   conf,
 	}, nil
-}
-
-func countAssets(albums []immich.Album) int {
-	n := 0
-	for _, album := range albums {
-		n += album.AssetCount
-	}
-	return n
 }
