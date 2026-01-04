@@ -91,7 +91,7 @@ func LoadConfig() (*Config, error) {
 	// Set config defaults.
 	var conf Config
 	conf.App.ImageDelay = 5 * time.Second
-	conf.App.ImageScale = 0.75
+	conf.App.ImageScale = 1
 	conf.App.HistorySize = 10
 	conf.App.PlanAlgorithm.PlanIter = &planners.Sequential{}
 
@@ -111,7 +111,7 @@ func LoadConfig() (*Config, error) {
 		slog.Warn("invalid imageScale value, resetting to default",
 			"error", "expected a value between 0 and 1",
 		)
-		conf.App.ImageScale = 0.75
+		conf.App.ImageScale = 1
 	}
 	if conf.App.HistorySize < 0 {
 		slog.Warn("invalid historySize value, setting to 0",
