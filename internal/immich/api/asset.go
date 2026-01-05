@@ -19,8 +19,21 @@ type AssetMetadata struct {
 	Type     string           `json:"type"`
 	Name     string           `json:"originalFileName"`
 	Duration string           `json:"duration"`
-	ExifInfo map[string]any   `json:"exifInfo"`
+	ExifInfo ExifInfo         `json:"exifInfo"`
 	People   []map[string]any `json:"people"`
+}
+
+// ExifInfo contains relevant EXIF data associated with an asset.
+//
+// See: https://api.immich.app/models/ExifResponseDto
+type ExifInfo struct {
+	City             string  `json:"city"`
+	State            string  `json:"state"`
+	Country          string  `json:"country"`
+	DateTimeOriginal string  `json:"dateTimeOriginal"`
+	TimeZone         string  `json:"timeZone"`
+	Latitude         float32 `json:"latitude"`
+	Longitude        float32 `json:"longitude"`
 }
 
 // Asset implements fyne.Resource for displaying the asset.

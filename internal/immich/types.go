@@ -8,3 +8,4 @@ type AssetID = api.AssetID
 type Album = api.Album
 type AlbumID = api.AlbumID
 type AssetMetadata = api.AssetMetadata
+type ExifInfo = api.ExifInfo
