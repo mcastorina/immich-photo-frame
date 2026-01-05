@@ -47,10 +47,11 @@ type Controller struct {
 // New initializes the Controller. An error is returned if it could not find
 // any albums or assets to give to the Display.
 func New(conf Config, client *immich.Client, disp *display.Display) (*Controller, error) {
-	albums, err := getConfiguredAlbums(client, conf.ImmichAlbums)
+	allAlbums, err := client.GetAlbums()
 	if err != nil {
 		return nil, err
 	}
+	albums := getConfiguredAlbums(allAlbums, conf.ImmichAlbums)
 	if n := countAssets(albums); n == 0 {
 		return nil, errors.New("no assets found")
 	}
@@ -157,47 +158,40 @@ func (c *Controller) nextAssetFromPlan() (*display.DecodedAsset, error) {
 // getConfiguredAlbums is a helper function to convert a list of album names
 // into a list of immich Album objects. An error is returned iff there was a
 // problem getting all of the albums from the immich Client.
-func getConfiguredAlbums(client *immich.Client, albums []string) ([]immich.Album, error) {
-	// Get all albums.
-	allAlbums, err := client.GetAlbums()
-	if err != nil {
-		return nil, err
-	}
-	slog.Info("found albums", "count", len(allAlbums))
-
+func getConfiguredAlbums(allAlbums []immich.Album, albumNames []string) []immich.Album {
 	// If no albums are configured, use all of the ones we found.
-	if len(albums) == 0 {
-		return allAlbums, nil
+	if len(albumNames) == 0 {
+		return allAlbums
 	}
 
-	// Build set of configured album names.
-	albumNameSet := make(map[string]struct{})
-	for _, album := range albums {
-		albumNameSet[album] = struct{}{}
+	// Build LUT of album name to immich.Album object.
+	albumLUT := make(map[string]immich.Album)
+	for _, album := range allAlbums {
+		albumLUT[album.Name] = album
 	}
 
 	// Iterate through all albums and build a list of the albums that are found in the set.
 	var configuredAlbums []immich.Album
 	foundAlbums := make(map[string]struct{})
-	for _, album := range allAlbums {
-		if _, ok := albumNameSet[album.Name]; ok {
+	for _, albumName := range albumNames {
+		if album, ok := albumLUT[albumName]; ok {
 			slog.Info("found album", "name", album.Name, "id", album.ID, "asset_count", album.AssetCount)
 			configuredAlbums = append(configuredAlbums, album)
-			foundAlbums[album.Name] = struct{}{}
+			foundAlbums[albumName] = struct{}{}
 		}
 	}
 
 	// Log if we didn't find some of the albums that were configured.
-	if len(foundAlbums) != len(albumNameSet) {
+	if len(configuredAlbums) != len(albumNames) {
 		var albumsMissing []string
-		for albumName := range albumNameSet {
+		for _, albumName := range albumNames {
 			if _, ok := foundAlbums[albumName]; !ok {
 				albumsMissing = append(albumsMissing, albumName)
 			}
 		}
 		slog.Warn("some albums not found", "albums_missing", albumsMissing)
 	}
-	return configuredAlbums, nil
+	return configuredAlbums
 }
 
 // countAssets is a helper function to sum all of the reported asset counts in
