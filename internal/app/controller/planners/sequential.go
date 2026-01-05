@@ -7,6 +7,9 @@ import (
 	"immich-photo-frame/internal/immich"
 )
 
+// Sequential implements PlanIter by sequentially iterating the albums by how
+// they were configured and their assets by how the album is configured in
+// immich ("asc" or "desc").
 type Sequential struct {
 	source     AssetClient
 	albums     []immich.Album
@@ -15,6 +18,7 @@ type Sequential struct {
 	assetIndex int
 }
 
+// Init implements PlanIter and initializes the Sequential object.
 func (s *Sequential) Init(source AssetClient, albums []immich.Album) {
 	*s = Sequential{
 		source: source,
@@ -25,6 +29,7 @@ func (s *Sequential) Init(source AssetClient, albums []immich.Album) {
 	}
 }
 
+// Next implements PlanIter and retrieves the next AssetMetadata.
 func (s *Sequential) Next() *immich.AssetMetadata {
 	if len(s.albums) == 0 {
 		return nil
@@ -64,7 +69,7 @@ func (s *Sequential) Next() *immich.AssetMetadata {
 }
 
 // getAlbumAssetsInOrder is a helper method to get the album asset metadata in
-// the order however the it is configured in immich.
+// the order it is configured in immich (e.g. "asc" or "desc").
 func (s *Sequential) getAlbumAssetsInOrder(album immich.Album) ([]immich.AssetMetadata, error) {
 	mds, err := s.source.GetAlbumAssets(album.ID)
 	if err != nil {
