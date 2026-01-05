@@ -52,6 +52,7 @@ func New(conf Config) *Display {
 	a.Settings().SetTheme(theme.DarkTheme())
 	a.Driver().SetDisableScreenBlanking(true)
 	win := a.NewWindow("immich")
+	win.Resize(fyne.NewSize(200, 200))
 	win.SetFullScreen(true)
 
 	img := canvas.NewImageFromResource(nil)
