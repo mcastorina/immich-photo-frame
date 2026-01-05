@@ -22,10 +22,16 @@ import (
 	"immich-photo-frame/internal/immich"
 )
 
+// Config holds configuration values for displaying assets.
+//
+// It is organized to take advantage of TOML parsing, however this package does
+// not handle parsing and has no expectation on how it will be initialized.
 type Config struct {
 	ImageScale float32
 }
 
+// Display controls the actual GUI application, such as the window, image, and
+// text overrlay.
 type Display struct {
 	conf Config
 	win  fyne.Window
@@ -33,11 +39,13 @@ type Display struct {
 	text *canvas.Text
 }
 
+// DecodedAsset is an asset that is ready to be displayed.
 type DecodedAsset struct {
 	Meta immich.AssetMetadata
 	Img  image.Image
 }
 
+// New initializes a Display with the provided configuration.
 func New(conf Config) *Display {
 	a := app.New()
 	// TODO: Make a custom theme since DarkTheme is deprecated.
@@ -66,10 +74,13 @@ func New(conf Config) *Display {
 	return &Display{conf, win, img, text}
 }
 
+// SetKeyBinds registers the provided callback to be executed when a key is
+// pressed.
 func (d *Display) SetKeyBinds(f func(*fyne.KeyEvent)) {
 	d.win.Canvas().SetOnTypedKey(f)
 }
 
+// Show tells the Display to display the DecodedAsset now.
 func (d *Display) Show(da DecodedAsset) {
 	fyne.Do(func() {
 		slog.Info("displaying image", "name", da.Meta.Name, "id", da.Meta.ID)
@@ -80,6 +91,9 @@ func (d *Display) Show(da DecodedAsset) {
 	})
 }
 
+// DecodeAsset takes an immich.Asset and transforms it in preparation for
+// display. This allows the work to be done ahead of calling [Show], since
+// decoding can be a significant amount of work.
 func (d *Display) DecodeAsset(ass *immich.Asset) (*DecodedAsset, error) {
 	img, _, err := image.Decode(bytes.NewReader(ass.Data))
 	if err != nil {
@@ -94,20 +108,32 @@ func (d *Display) DecodeAsset(ass *immich.Asset) (*DecodedAsset, error) {
 	}, nil
 }
 
+// ShowAndRun starts the GUI and runs the application. This method must be
+// called from the main thread and blocks until the application is closed.
 func (d *Display) ShowAndRun() {
 	d.win.ShowAndRun()
 }
 
+// formattedDateTime is a helper method to format the EXIF time information
+// into human-readable text.
 func (d *Display) formattedDateTime(exifInfo immich.ExifInfo) string {
 	// Parse EXIF timestamp.
 	t, err := time.Parse("2006-01-02T15:04:05.999Z07:00", exifInfo.DateTimeOriginal)
 	if err != nil {
+		slog.Error("failed to parse timestamp",
+			"error", err,
+			"timezone", exifInfo.DateTimeOriginal,
+		)
 		return ""
 	}
 
 	// Parse EXIF timezone.
 	loc, err := parseTimeZone(exifInfo.TimeZone)
 	if err != nil {
+		slog.Error("failed to parse timezone",
+			"error", err,
+			"timezone", exifInfo.TimeZone,
+		)
 		return ""
 	}
 	t = t.In(loc)
@@ -124,6 +150,9 @@ func (d *Display) formattedDateTime(exifInfo immich.ExifInfo) string {
 	}
 }
 
+// parseTimeZone is a helper function to parse the EXIF timezone string into a
+// time.Location. It first tries to load the location directly, and if that
+// doesn't work, it tries parsing it as a UTC offset.
 func parseTimeZone(tz string) (*time.Location, error) {
 	// First try loading it as a location.
 	if loc, err := time.LoadLocation(tz); err == nil {
