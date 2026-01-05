@@ -2,11 +2,12 @@ package controller
 
 import (
 	"errors"
+	"log/slog"
+	"time"
+
 	"immich-photo-frame/internal/app/controller/planners"
 	"immich-photo-frame/internal/app/display"
 	"immich-photo-frame/internal/immich"
-	"log/slog"
-	"time"
 )
 
 var (
@@ -14,8 +15,14 @@ var (
 	Prev cmd = "prev"
 )
 
+// cmd is an internal type representing a requested action performed by the
+// user.
 type cmd string
 
+// Config holds configuration values for controlling the photo-frame behavior.
+//
+// It is organized to take advantage of TOML parsing, however this package does
+// not handle parsing and has no expectation on how it will be initialized.
 type Config struct {
 	ImmichAlbums  []string
 	ImageDelay    time.Duration
@@ -23,6 +30,7 @@ type Config struct {
 	PlanAlgorithm planners.PlanAlgorithm
 }
 
+// Controller gathers assets and drives the Display.
 type Controller struct {
 	conf             Config
 	configuredAlbums []immich.Album
@@ -36,6 +44,8 @@ type Controller struct {
 	historyIndex int
 }
 
+// New initializes the Controller. An error is returned if it could not find
+// any albums or assets to give to the Display.
 func New(conf Config, client *immich.Client, disp *display.Display) (*Controller, error) {
 	albums, err := getConfiguredAlbums(client, conf.ImmichAlbums)
 	if err != nil {
@@ -55,14 +65,17 @@ func New(conf Config, client *immich.Client, disp *display.Display) (*Controller
 	}, nil
 }
 
+// Next requests that the next asset be shown immediately.
 func (c *Controller) Next() {
 	c.cmd <- Next
 }
 
+// Prev requests that the previous asset be shown immediately.
 func (c *Controller) Prev() {
 	c.cmd <- Prev
 }
 
+// Run drives the Display indefinitely.
 func (c *Controller) Run() {
 	// Initialize planner.
 	c.conf.PlanAlgorithm.Init(c.client, c.configuredAlbums)
@@ -88,10 +101,13 @@ func (c *Controller) Run() {
 	}
 }
 
+// currentAsset is a helper method to get the current asset to be displayed.
 func (c *Controller) currentAsset() display.DecodedAsset {
 	return c.history[c.historyIndex]
 }
 
+// nextHistory is a helper method to modify history or historyIndex to advance
+// the display.
 func (c *Controller) nextHistory() {
 	if c.historyIndex < len(c.history)-1 {
 		c.historyIndex++
@@ -106,12 +122,16 @@ func (c *Controller) nextHistory() {
 	c.history = c.history[1:]
 }
 
+// prevHistory is a helper method to move historyIndex back one, if possible.
 func (c *Controller) prevHistory() {
 	if c.historyIndex > 0 && c.history[c.historyIndex-1].Img != nil {
 		c.historyIndex--
 	}
 }
 
+// nextAssetFromPlan is a helper method to get the next immich asset from the
+// configured plan, download it, and decode it into a DecodedAsset. It retries
+// up to 5 times to get an asset and returns an error if it could not.
 func (c *Controller) nextAssetFromPlan() (*display.DecodedAsset, error) {
 	for range 5 {
 		md := c.conf.PlanAlgorithm.Next()
@@ -134,6 +154,9 @@ func (c *Controller) nextAssetFromPlan() (*display.DecodedAsset, error) {
 	return nil, errors.New("could not get the next asset after 5 tries")
 }
 
+// getConfiguredAlbums is a helper function to convert a list of album names
+// into a list of immich Album objects. An error is returned iff there was a
+// problem getting all of the albums from the immich Client.
 func getConfiguredAlbums(client *immich.Client, albums []string) ([]immich.Album, error) {
 	// Get all albums.
 	allAlbums, err := client.GetAlbums()
@@ -177,6 +200,9 @@ func getConfiguredAlbums(client *immich.Client, albums []string) ([]immich.Album
 	return configuredAlbums, nil
 }
 
+// countAssets is a helper function to sum all of the reported asset counts in
+// the albums as a sanity check that there will probably be something to
+// display.
 func countAssets(albums []immich.Album) int {
 	n := 0
 	for _, album := range albums {
