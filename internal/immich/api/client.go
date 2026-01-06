@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -56,7 +57,16 @@ type immichTransport struct {
 func (i immichTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	req = req.Clone(req.Context())
 	i.transformF(req)
-	return http.DefaultTransport.RoundTrip(req)
+	resp, err := http.DefaultTransport.RoundTrip(req)
+	if err != nil {
+		return resp, err
+	}
+	if err := checkStatusCode(resp.StatusCode); err != nil {
+		io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+		return nil, err
+	}
+	return resp, nil
 }
 
 // NewClientFromEnv initializes a Client using the IMMICH_API_ENDPOINT and
@@ -102,15 +112,24 @@ func (c Client) IsConnected() error {
 	}
 	defer resp.Body.Close()
 	// Check the response code.
-	if resp.StatusCode == http.StatusUnauthorized {
-		return errors.New("misconfigured client: invalid immich token")
-	} else if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status code %d", resp.StatusCode)
+	if err := checkStatusCode(resp.StatusCode); err != nil {
+		return err
 	}
 	// Check it's a JSON response.
 	var m map[string]any
 	if err := json.NewDecoder(resp.Body).Decode(&m); err != nil {
 		return err
+	}
+	return nil
+}
+
+// checkStatusCode is a helper function to check for a 200 OK status
+// code and return a descriptive error if not.
+func checkStatusCode(statusCode int) error {
+	if statusCode == http.StatusUnauthorized {
+		return errors.New("invalid immich token")
+	} else if statusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code %d", statusCode)
 	}
 	return nil
 }
