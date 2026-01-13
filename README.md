@@ -14,7 +14,7 @@ file in the current working directory, however if the
 ```toml
 [app]
 immichAlbums = ["Photo Frame"]
-imageDelay = "2s"
+imageDelay = "10s"
 
 [remote]
 immichAPIEndpoint = "http://immich:2283"
@@ -23,11 +23,7 @@ immichAPIKey = "consider using IMMICH_API_KEY env var"
 [localStorage]
 useLocalStorage  = true
 localStorageSize = "512 MB"
-localStoragePath = "/tmp/ipf"
-
-[inMemoryCache]
-useInMemoryCache  = true
-inMemoryCacheSize = "512 MB"
+localStoragePath = "$HOME/.ipf"
 ```
 
 ### App
@@ -76,7 +72,8 @@ immich server is not always available.
 ### In-Memory Cache
 
 The `inMemoryCache` section configures how much memory to allocate before going
-to disk or the immich server when loading assets.
+to disk or the immich server when loading assets. This typically is only useful
+if you have a lot of RAM and not a lot of storage.
 
 | key | type | description |
 | --- | --- | --- |
