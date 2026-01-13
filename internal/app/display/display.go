@@ -100,9 +100,11 @@ func (d *Display) DecodeAsset(ass *immich.Asset) (*DecodedAsset, error) {
 	if err != nil {
 		return nil, err
 	}
-	imgHeight := float32(img.Bounds().Dy())
-	resizeHeight := int(imgHeight * d.conf.ImageScale)
-	img = imaging.Resize(img, 0, resizeHeight, imaging.Lanczos)
+	imgHeight := img.Bounds().Dy()
+	resizeHeight := int(float32(imgHeight) * d.conf.ImageScale)
+	if resizeHeight != imgHeight {
+		img = imaging.Resize(img, 0, resizeHeight, imaging.Lanczos)
+	}
 	return &DecodedAsset{
 		Meta: ass.Meta,
 		Img:  img,
