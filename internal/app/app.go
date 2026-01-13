@@ -102,6 +102,7 @@ func LoadConfig() (*Config, error) {
 
 	// Load values from environment variables.
 	conf.Remote.HydrateFromEnv()
+	conf.LocalStorage.LocalStoragePath = os.ExpandEnv(conf.LocalStorage.LocalStoragePath)
 
 	// Validate config values.
 	if err := conf.LocalStorage.Valid(); err != nil {

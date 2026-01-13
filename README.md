@@ -71,7 +71,7 @@ immich server is not always available.
 | --- | --- | --- |
 | `useLocalStorage` | bool | Enable storing assets locally |
 | `localStorageSize` | string | Amount of bytes to use for storing assets (in human-readable text) |
-| `localStoragePath` | string | Absolute path to store assets |
+| `localStoragePath` | string | Absolute path to store assets (supports environment variables) |
 
 ### In-Memory Cache
 
