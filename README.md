@@ -4,11 +4,6 @@ A desktop application to display photos pulled from an
 [immich](https://immich.app/) server.
 
 
-## Build
-
-```bash
-go build -o ipf .
-```
 
 ## Configure
 
@@ -88,8 +83,47 @@ to disk or the immich server when loading assets.
 | `useInMemoryCache` | bool | Enable storing assets in-memory |
 | `inMemoryCacheSize` | string | Amount of bytes to use for storing assets (in human-readable text) |
 
-## Run
+
+## Development
+
+This project uses [fyne](https://fyne.io), a cross-platform GUI framework.
+Theoretically you can build and run this "anywhere," but it has only been
+designed and tested on MacOS and a Raspberry Pi.
+
+To build and run for local development:
 
 ```bash
+go build -o ipf .
 ./ipf
+```
+
+## Raspberry Pi
+
+The intended final destination for this project is to run on a Raspberry Pi,
+which has limited RAM and storage.
+
+The application running on a RPi takes roughly 350M of RAM on average, with
+spikes as high as 600M. My preliminary attempts to get it work on a RPi Zero 2W
+were met with OOM kills. Newer models with at least 1GB of RAM are recommended.
+
+| Hardware | Minimum required |
+| --- | --- |
+| RAM | 1 GB |
+| SD Card | 8 GB |
+
+
+### Build and run (remotely)
+
+```bash
+sudo apt install    \
+    golang          \
+    libxrandr-dev   \
+    libxinerama-dev \
+    libxi-dev       \
+    libxxf86vm-dev  \
+    libxcursor-dev
+
+go build -o ipf .
+
+DISPLAY=:0 ./ipf
 ```
