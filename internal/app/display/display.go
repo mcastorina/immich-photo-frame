@@ -6,6 +6,7 @@ import (
 	"image"
 	"image/color"
 	"log/slog"
+	"math"
 	"strconv"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 
@@ -69,6 +71,7 @@ func New(conf Config) *Display {
 		container.NewBorder(nil,
 			container.NewHBox(layout.NewSpacer(), text),
 			nil, nil),
+		hiddenCursorOverlay{},
 	)
 	win.SetContent(content)
 
@@ -174,3 +177,18 @@ func parseTimeZone(tz string) (*time.Location, error) {
 	seconds := hours * 60 * 60
 	return time.FixedZone(tz, seconds), nil
 }
+
+// hiddenCursorOverlay implements fyne.CanvasObject and desktop.Cursorable to
+// sit on top of the window and hide the cursor.
+type hiddenCursorOverlay struct{}
+
+func (h hiddenCursorOverlay) Hide()                   {}
+func (h hiddenCursorOverlay) MinSize() fyne.Size      { return fyne.NewSize(0, 0) }
+func (h hiddenCursorOverlay) Move(fyne.Position)      {}
+func (h hiddenCursorOverlay) Position() fyne.Position { return fyne.NewPos(-10, -10) }
+func (h hiddenCursorOverlay) Refresh()                {}
+func (h hiddenCursorOverlay) Resize(fyne.Size)        {}
+func (h hiddenCursorOverlay) Show()                   {}
+func (h hiddenCursorOverlay) Size() fyne.Size         { return fyne.NewSize(math.MaxFloat32, math.MaxFloat32) }
+func (h hiddenCursorOverlay) Visible() bool           { return true }
+func (h hiddenCursorOverlay) Cursor() desktop.Cursor  { return desktop.HiddenCursor }
