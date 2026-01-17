@@ -40,23 +40,23 @@ func (l localStorageClient) StoreAlbumAssets(id AlbumID, assets []AssetMetadata)
 
 // GetAlbums attempts to retrieve the list of albums from the filesystem. An
 // error is returned if the data is not available.
-func (l localStorageClient) GetAlbums() ([]Album, error) {
+func (l localStorageClient) GetAlbums() (*GetAlbumsResponse, error) {
 	key := albumsKey()
 	data, err := l.get(key)
 	if err != nil {
 		return nil, err
 	}
-	var albums []Album
-	if err := json.Unmarshal(data, &albums); err != nil {
+	var resp GetAlbumsResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
 		return nil, err
 	}
-	return albums, nil
+	return &resp, nil
 }
 
 // StoreAlbums attempts to write the list of albums to the filesystem.
-func (l localStorageClient) StoreAlbums(albums []Album) error {
+func (l localStorageClient) StoreAlbums(resp GetAlbumsResponse) error {
 	key := albumsKey()
-	data, err := json.Marshal(albums)
+	data, err := json.Marshal(resp)
 	if err != nil {
 		return err
 	}

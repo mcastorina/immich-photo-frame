@@ -48,31 +48,33 @@ func (i inMemoryCache) StoreAlbumAssets(id AlbumID, assets []AssetMetadata) erro
 
 // GetAlbums attempts to retrieve the list of albums from the cache. An error
 // is returned if the data is not available.
-func (i inMemoryCache) GetAlbums() ([]Album, error) {
+func (i inMemoryCache) GetAlbums() (*GetAlbumsResponse, error) {
 	key := albumsKey()
 	val, err := i.get(key)
 	if err != nil {
 		return nil, err
 	}
-	albums, ok := val.([]Album)
+	resp, ok := val.(GetAlbumsResponse)
 	if !ok {
 		return nil, fmt.Errorf("unexpected asset type: %T", val)
 	}
 
 	// Make a copy so the cache cannot be modified.
-	albumCopy := make([]Album, len(albums))
-	copy(albumCopy, albums)
-	return albumCopy, nil
+	albumCopy := make([]Album, len(resp.Albums))
+	copy(albumCopy, resp.Albums)
+	resp.Albums = albumCopy
+	return &resp, nil
 }
 
 // StoreAlbums writes the list of albums to the cache.
-func (i inMemoryCache) StoreAlbums(albums []Album) error {
+func (i inMemoryCache) StoreAlbums(resp GetAlbumsResponse) error {
 	// Make a copy so the cache cannot be modified.
-	albumCopy := make([]Album, len(albums))
-	copy(albumCopy, albums)
+	albumCopy := make([]Album, len(resp.Albums))
+	copy(albumCopy, resp.Albums)
+	resp.Albums = albumCopy
 
 	key := albumsKey()
-	i.Add(key, albumCopy)
+	i.Add(key, resp)
 	return nil
 }
 

@@ -19,6 +19,33 @@ type Client struct {
 	remote remoteClient
 }
 
+// rwClient is a client that can both read and write, typically local clients,
+// not the remote immich server.
+type rwClient interface {
+	readClient
+	writeClient
+}
+
+// readClient is a client that can provide immich albums and assets.
+type readClient interface {
+	GetAsset(md AssetMetadata) (*Asset, error)
+	GetAlbums() (*GetAlbumsResponse, error)
+	GetAlbumAssets(id AlbumID) ([]AssetMetadata, error)
+}
+
+// writeClient is a client that can store immich albums and assets.
+type writeClient interface {
+	StoreAsset(asset *Asset) error
+	StoreAlbums(resp GetAlbumsResponse) error
+	StoreAlbumAssets(id AlbumID, assets []AssetMetadata) error
+}
+
+// remoteClient is a read-only client with a connection check.
+type remoteClient interface {
+	IsConnected() error
+	readClient
+}
+
 // GetAsset retrieves an immich asset given its metadata. It first checks the
 // in-memory cache, then local storage, then the remote server. On success, the
 // in-memory cache and (if applicable) the local storage are updated.
@@ -48,20 +75,27 @@ func (c Client) GetAsset(md AssetMetadata) (*Asset, error) {
 // then local storage, then the remote server. On success, the in-memory cache
 // and (if applicable) the local storage are updated.
 func (c Client) GetAlbums() ([]Album, error) {
-	if albums, err := c.cache.GetAlbums(); err == nil {
-		return albums, nil
+	var errs []error
+	if resp, err := c.cache.GetAlbums(); err == nil {
+		return resp.Albums, nil
+	} else {
+		errs = append(errs, err)
 	}
-	if albums, err := c.local.GetAlbums(); err == nil {
-		c.cache.StoreAlbums(albums)
-		return albums, nil
+	if resp, err := c.local.GetAlbums(); err == nil {
+		c.cache.StoreAlbums(*resp)
+		return resp.Albums, nil
+	} else {
+		errs = append(errs, err)
 	}
 	slog.Info("fetching albums from remote")
-	albums, err := c.remote.GetAlbums()
-	if err == nil {
-		c.cache.StoreAlbums(albums)
-		c.local.StoreAlbums(albums)
+	if resp, err := c.remote.GetAlbums(); err == nil {
+		c.cache.StoreAlbums(*resp)
+		c.local.StoreAlbums(*resp)
+		return resp.Albums, nil
+	} else {
+		errs = append(errs, err)
 	}
-	return albums, err
+	return nil, errors.Join(errs...)
 }
 
 // GetAlbumAssets gets the asset metadata for the given immich album ID. It
@@ -83,33 +117,6 @@ func (c Client) GetAlbumAssets(id AlbumID) ([]AssetMetadata, error) {
 		c.local.StoreAlbumAssets(id, assets)
 	}
 	return assets, err
-}
-
-// rwClient is a client that can both read and write, typically local clients,
-// not the remote immich server.
-type rwClient interface {
-	readClient
-	writeClient
-}
-
-// readClient is a client that can provide immich albums and assets.
-type readClient interface {
-	GetAsset(md AssetMetadata) (*Asset, error)
-	GetAlbums() ([]Album, error)
-	GetAlbumAssets(id AlbumID) ([]AssetMetadata, error)
-}
-
-// writeClient is a client that can store immich albums and assets.
-type writeClient interface {
-	StoreAsset(asset *Asset) error
-	StoreAlbums(albums []Album) error
-	StoreAlbumAssets(id AlbumID, assets []AssetMetadata) error
-}
-
-// remoteClient is a read-only client with a connection check.
-type remoteClient interface {
-	IsConnected() error
-	readClient
 }
 
 // clientOpt is used for configuring the [Client].
@@ -178,14 +185,10 @@ func albumsKey() string          { return "albums" }
 // clients.
 type noopClient struct{}
 
-func (noopClient) GetAlbumAssets(id AlbumID) ([]AssetMetadata, error) {
-	return nil, errors.New("noop")
-}
-func (noopClient) GetAlbums() ([]Album, error)               { return nil, errors.New("noop") }
-func (noopClient) GetAsset(md AssetMetadata) (*Asset, error) { return nil, errors.New("noop") }
-func (noopClient) IsConnected() error                        { return errors.New("noop") }
-func (noopClient) StoreAlbumAssets(id AlbumID, assets []AssetMetadata) error {
-	return errors.New("noop")
-}
-func (noopClient) StoreAlbums(albums []Album) error { return errors.New("noop") }
-func (noopClient) StoreAsset(asset *Asset) error    { return errors.New("noop") }
+func (noopClient) GetAlbumAssets(AlbumID) ([]AssetMetadata, error) { return nil, errors.New("noop") }
+func (noopClient) GetAlbums() (*GetAlbumsResponse, error)          { return nil, errors.New("noop") }
+func (noopClient) GetAsset(AssetMetadata) (*Asset, error)          { return nil, errors.New("noop") }
+func (noopClient) IsConnected() error                              { return errors.New("noop") }
+func (noopClient) StoreAlbumAssets(AlbumID, []AssetMetadata) error { return errors.New("noop") }
+func (noopClient) StoreAlbums(GetAlbumsResponse) error             { return errors.New("noop") }
+func (noopClient) StoreAsset(*Asset) error                         { return errors.New("noop") }

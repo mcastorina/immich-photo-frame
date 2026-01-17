@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"path"
+	"time"
 )
 
 // AlbumID is the immich ID for an album, usually in the shape of UUIDv4.
@@ -19,10 +20,16 @@ type Album struct {
 	AssetCount  int     `json:"assetCount"`
 }
 
+// GetAlbumsResponse wraps the immich API response with some metadata.
+type GetAlbumsResponse struct {
+	ResponseTime time.Time
+	Albums       []Album
+}
+
 // GetAlbums retrieves all albums from the immich API.
 //
 // See: https://api.immich.app/endpoints/albums/getAllAlbums
-func (c Client) GetAlbums() ([]Album, error) {
+func (c Client) GetAlbums() (*GetAlbumsResponse, error) {
 	resp, err := c.Get("/albums")
 	if err != nil {
 		return nil, err
@@ -33,7 +40,10 @@ func (c Client) GetAlbums() ([]Album, error) {
 	if err := json.NewDecoder(resp.Body).Decode(&albums); err != nil {
 		return nil, err
 	}
-	return albums, nil
+	return &GetAlbumsResponse{
+		ResponseTime: time.Now(),
+		Albums:       albums,
+	}, nil
 }
 
 // GetAlbumAssets retrieves the album asset metadata for the provided album ID.

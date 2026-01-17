@@ -9,3 +9,4 @@ type Album = api.Album
 type AlbumID = api.AlbumID
 type AssetMetadata = api.AssetMetadata
 type ExifInfo = api.ExifInfo
+type GetAlbumsResponse = api.GetAlbumsResponse
