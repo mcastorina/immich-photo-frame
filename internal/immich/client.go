@@ -50,52 +50,71 @@ type remoteClient interface {
 // in-memory cache, then local storage, then the remote server. On success, the
 // in-memory cache and (if applicable) the local storage are updated.
 func (c Client) GetAsset(md AssetMetadata) (*Asset, error) {
-	if ass, err := c.cache.GetAsset(md); err == nil {
-		return ass, nil
+	log := slog.With("id", md.ID, "name", md.Name)
+	{
+		ass, err := c.cache.GetAsset(md)
+		if err == nil {
+			log.Debug("found asset in cache", "size", humanize.Bytes(uint64(len(ass.Data))))
+			return ass, nil
+		}
+		log.Debug("failed to get asset from cache", "error", err)
 	}
-	if ass, err := c.local.GetAsset(md); err == nil {
-		_ = c.cache.StoreAsset(ass)
-		return ass, nil
+	{
+		ass, err := c.local.GetAsset(md)
+		if err == nil {
+			log.Debug("found asset in local storage", "size", humanize.Bytes(uint64(len(ass.Data))))
+			_ = c.cache.StoreAsset(ass)
+			return ass, nil
+		}
+		log.Debug("failed to get asset from local storage", "error", err)
 	}
-	slog.Debug("fetching asset from remote", "id", md.ID, "name", md.Name)
-	ass, err := c.remote.GetAsset(md)
-	if err == nil {
-		slog.Info("fetched asset from remote",
-			"id", md.ID,
-			"name", md.Name,
-			"size", humanize.Bytes(uint64(len(ass.Data))),
-		)
-		_ = c.cache.StoreAsset(ass)
-		_ = c.local.StoreAsset(ass)
+	{
+		log.Debug("fetching asset from remote")
+		ass, err := c.remote.GetAsset(md)
+		if err == nil {
+			log.Info("fetched asset from remote", "size", humanize.Bytes(uint64(len(ass.Data))))
+			_ = c.cache.StoreAsset(ass)
+			_ = c.local.StoreAsset(ass)
+			return ass, nil
+		}
+		log.Debug("failed to get asset from remote", "error", err)
 	}
-	return ass, err
+	return nil, errors.New("could not get asset")
 }
 
 // GetAlbums retrieves all immich albums. It first checks the in-memory cache,
 // then local storage, then the remote server. On success, the in-memory cache
 // and (if applicable) the local storage are updated.
 func (c Client) GetAlbums() ([]Album, error) {
-	var errs []error
-	if resp, err := c.cache.GetAlbums(); err == nil {
-		return resp.Albums, nil
-	} else {
-		errs = append(errs, err)
+	{
+		resp, err := c.cache.GetAlbums()
+		if err == nil {
+			slog.Debug("found albums in cache")
+			return resp.Albums, nil
+		}
+		slog.Debug("failed to get albums from cache", "error", err)
 	}
-	if resp, err := c.local.GetAlbums(); err == nil {
-		c.cache.StoreAlbums(*resp)
-		return resp.Albums, nil
-	} else {
-		errs = append(errs, err)
+	{
+		resp, err := c.local.GetAlbums()
+		if err == nil {
+			slog.Debug("found albums in local storage")
+			_ = c.cache.StoreAlbums(*resp)
+			return resp.Albums, nil
+		}
+		slog.Debug("failed to get albums from local storage", "error", err)
 	}
-	slog.Info("fetching albums from remote")
-	if resp, err := c.remote.GetAlbums(); err == nil {
-		c.cache.StoreAlbums(*resp)
-		c.local.StoreAlbums(*resp)
-		return resp.Albums, nil
-	} else {
-		errs = append(errs, err)
+	{
+		slog.Info("fetching albums from remote")
+		resp, err := c.remote.GetAlbums()
+		if err == nil {
+			slog.Debug("fetched albums from remote")
+			_ = c.cache.StoreAlbums(*resp)
+			_ = c.local.StoreAlbums(*resp)
+			return resp.Albums, nil
+		}
+		slog.Debug("failed to get albums from remote", "error", err)
 	}
-	return nil, errors.Join(errs...)
+	return nil, errors.New("could not get albums")
 }
 
 // GetAlbumAssets gets the asset metadata for the given immich album ID. It
@@ -103,20 +122,36 @@ func (c Client) GetAlbums() ([]Album, error) {
 // server. On success, the in-memory cache and (if-applicable) the local
 // storage are updates.
 func (c Client) GetAlbumAssets(id AlbumID) ([]AssetMetadata, error) {
-	if assets, err := c.cache.GetAlbumAssets(id); err == nil {
-		return assets, nil
+	log := slog.With("id", id)
+	{
+		assets, err := c.cache.GetAlbumAssets(id)
+		if err == nil {
+			log.Debug("found album asset metadata in cache", "id", id)
+			return assets, nil
+		}
+		log.Debug("failed to get album asset metadata from cache", "id", id, "error", err)
 	}
-	if assets, err := c.local.GetAlbumAssets(id); err == nil {
-		c.cache.StoreAlbumAssets(id, assets)
-		return assets, nil
+	{
+		assets, err := c.local.GetAlbumAssets(id)
+		if err == nil {
+			log.Debug("found album asset metadata in local storage", "id", id)
+			_ = c.cache.StoreAlbumAssets(id, assets)
+			return assets, nil
+		}
+		log.Debug("failed to get album asset metadata from local storage", "id", id, "error", err)
 	}
-	slog.Info("fetching album asset metadata from remote", "id", id)
-	assets, err := c.remote.GetAlbumAssets(id)
-	if err == nil {
-		c.cache.StoreAlbumAssets(id, assets)
-		c.local.StoreAlbumAssets(id, assets)
+	{
+		log.Info("fetching album asset metadata from remote", "id", id)
+		assets, err := c.remote.GetAlbumAssets(id)
+		if err == nil {
+			log.Debug("fetched album asset metadata from remote", "id", id)
+			_ = c.cache.StoreAlbumAssets(id, assets)
+			_ = c.local.StoreAlbumAssets(id, assets)
+			return assets, nil
+		}
+		log.Debug("failed to get album asset metadata from remote", "id", id, "error", err)
 	}
-	return assets, err
+	return nil, errors.New("could not get album assets")
 }
 
 // clientOpt is used for configuring the [Client].
