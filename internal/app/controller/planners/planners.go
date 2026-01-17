@@ -9,6 +9,7 @@ import (
 
 // PlanIter defines how to iterate over the configured albums and assets.
 type PlanIter interface {
+	Name() string
 	Init(source AssetClient, albums []immich.Album)
 	Next() *immich.AssetMetadata
 }
@@ -26,24 +27,41 @@ type PlanAlgorithm struct {
 	PlanIter
 }
 
-// planAlgorithms is the LUT for all the PlanIter objects and their names.
-var planAlgorithms = map[string]PlanIter{
-	"sequential": &Sequential{},
-}
+var (
+	// planAlgorithms is the list of all the PlanIter objects that can be
+	// configured.
+	planAlgorithms = []PlanIter{
+		new(Sequential),
+	}
+
+	// planAlgorithmsByName is a LUT of name to PlanIter, built via [init].
+	planAlgorithmsByName = map[string]PlanIter{}
+)
 
 // UnmarshalText implements toml.TextUnmarshaler.
 func (p *PlanAlgorithm) UnmarshalText(text []byte) error {
-	iter, ok := planAlgorithms[strings.ToLower(string(text))]
+	iter, ok := planAlgorithmsByName[strings.ToLower(string(text))]
 	if ok {
 		p.PlanIter = iter
 		return nil
 	}
 	var validAlgos []string
-	for key := range planAlgorithms {
+	for key := range planAlgorithmsByName {
 		validAlgos = append(validAlgos, key)
 	}
 	return fmt.Errorf(
 		"unsupported plan algorithm %q, expected one of %v",
 		string(text), validAlgos,
 	)
+}
+
+// MarshalJSON implements json.Marshaler.
+func (p *PlanAlgorithm) MarshalJSON() ([]byte, error) {
+	return fmt.Appendf(nil, `%q`, p.PlanIter.Name()), nil
+}
+
+func init() {
+	for _, algo := range planAlgorithms {
+		planAlgorithmsByName[algo.Name()] = algo
+	}
 }

@@ -18,6 +18,8 @@ type Sequential struct {
 	assetIndex int
 }
 
+func (s *Sequential) Name() string { return "sequential" }
+
 // Init implements PlanIter and initializes the Sequential object.
 func (s *Sequential) Init(source AssetClient, albums []immich.Album) {
 	*s = Sequential{
