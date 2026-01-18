@@ -88,22 +88,35 @@ func (c Client) GetAsset(md AssetMetadata) (*Asset, error) {
 // then local storage, then the remote server. On success, the in-memory cache
 // and (if applicable) the local storage are updated.
 func (c Client) GetAlbums() ([]Album, error) {
+	var foundResp *GetAlbumsResponse
 	{
 		resp, err := c.cache.GetAlbums()
-		if err == nil {
+		if err == nil && !c.shouldRefresh(resp.ResponseTime) {
 			slog.Debug("found albums in cache")
 			return resp.Albums, nil
+		} else if err == nil {
+			slog.Debug("found stale albums in cache",
+				"age", time.Since(resp.ResponseTime).String(),
+				"maxAge", c.refreshInterval.String())
+			foundResp = resp
+		} else {
+			slog.Debug("failed to get albums from cache", "error", err)
 		}
-		slog.Debug("failed to get albums from cache", "error", err)
 	}
 	{
 		resp, err := c.local.GetAlbums()
-		if err == nil {
+		if err == nil && !c.shouldRefresh(resp.ResponseTime) {
 			slog.Debug("found albums in local storage")
 			_ = c.cache.StoreAlbums(*resp)
 			return resp.Albums, nil
+		} else if err == nil {
+			slog.Debug("found stale albums in local storage",
+				"age", time.Since(resp.ResponseTime).String(),
+				"maxAge", c.refreshInterval.String())
+			foundResp = resp
+		} else {
+			slog.Debug("failed to get albums from local storage", "error", err)
 		}
-		slog.Debug("failed to get albums from local storage", "error", err)
 	}
 	{
 		slog.Info("fetching albums from remote")
@@ -115,6 +128,12 @@ func (c Client) GetAlbums() ([]Album, error) {
 			return resp.Albums, nil
 		}
 		slog.Debug("failed to get albums from remote", "error", err)
+	}
+	if foundResp != nil {
+		slog.Debug("failed to get albums, using stale response",
+			"age", time.Since(foundResp.ResponseTime).String(),
+			"maxAge", c.refreshInterval.String())
+		return foundResp.Albums, nil
 	}
 	return nil, errors.New("could not get albums")
 }
