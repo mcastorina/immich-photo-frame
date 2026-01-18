@@ -37,6 +37,7 @@ The `app` section configures how the application will run.
 | `imageScale` | float | `1` | Value between 0 and 1 for scaling the image (higher values for better resolution) |
 | `historySize` | int | `10` | How many images to keep for going backwards |
 | `planAlgorithm` | string | `sequential` | Algorithm for advancing through configured albums and assets |
+| `immichAlbumRefreshInterval` | string | `24h` | Amount of time before checking the immich server for new albums and assets (in human-readable text) |
 
 #### Plan Algorithms
 
