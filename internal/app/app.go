@@ -27,6 +27,7 @@ type Config struct {
 	App struct {
 		ControllerConfig
 		DisplayConfig
+		ImmichAlbumRefreshInterval time.Duration
 	}
 }
 
@@ -94,6 +95,7 @@ func LoadConfig() (*Config, error) {
 	conf.App.ImageScale = 1
 	conf.App.HistorySize = 10
 	conf.App.PlanAlgorithm.PlanIter = &planners.Sequential{}
+	conf.App.ImmichAlbumRefreshInterval = 24 * time.Hour
 
 	// TOML-decode config file contents.
 	if _, err := toml.DecodeFile(configFilePath, &conf); err != nil {
@@ -129,6 +131,7 @@ func InitApp(conf Config) (*photoFrame, error) {
 		immich.WithRemote(conf.Remote),
 		immich.WithLocalStorage(conf.LocalStorage),
 		immich.WithInMemoryCache(conf.InMemoryCache),
+		immich.WithRefreshInterval(conf.App.ImmichAlbumRefreshInterval),
 	)
 	slog.Info("created immich client")
 	slog.Info("client diagnostics", "diagnostics", client.Diagnostics())

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/dustin/go-humanize"
 
@@ -14,9 +15,10 @@ import (
 // Client provides an API for retrieving immich albums and assets with seamless
 // in-memory and local storage caching.
 type Client struct {
-	cache  rwClient
-	local  rwClient
-	remote remoteClient
+	refreshInterval time.Duration
+	cache           rwClient
+	local           rwClient
+	remote          remoteClient
 }
 
 // rwClient is a client that can both read and write, typically local clients,
@@ -154,8 +156,22 @@ func (c Client) GetAlbumAssets(id AlbumID) ([]AssetMetadata, error) {
 	return nil, errors.New("could not get album asset metadata")
 }
 
+func (c Client) shouldRefresh(respTime time.Time) bool {
+	if c.refreshInterval == 0 {
+		return false
+	}
+	return time.Since(respTime) >= c.refreshInterval
+}
+
 // clientOpt is used for configuring the [Client].
 type clientOpt func(*Client)
+
+// WithRefreshInterval controls how long an immich server response is valid. A
+// value of 0 means never refresh the responses. Stale values will continue to
+// be used if the client is unable to reach the server.
+func WithRefreshInterval(d time.Duration) clientOpt {
+	return func(c *Client) { c.refreshInterval = d }
+}
 
 // WithInMemoryCache adds an in-memory cache to the Client, if configured. Only
 // one in-memory cache can be configured. If multiple are provided, the last is
