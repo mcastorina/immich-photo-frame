@@ -30,14 +30,14 @@ type rwClient interface {
 type readClient interface {
 	GetAsset(md AssetMetadata) (*Asset, error)
 	GetAlbums() (*GetAlbumsResponse, error)
-	GetAlbumAssets(id AlbumID) ([]AssetMetadata, error)
+	GetAlbumAssets(id AlbumID) (*GetAlbumAssetsResponse, error)
 }
 
 // writeClient is a client that can store immich albums and assets.
 type writeClient interface {
 	StoreAsset(asset *Asset) error
 	StoreAlbums(resp GetAlbumsResponse) error
-	StoreAlbumAssets(id AlbumID, assets []AssetMetadata) error
+	StoreAlbumAssets(id AlbumID, resp GetAlbumAssetsResponse) error
 }
 
 // remoteClient is a read-only client with a connection check.
@@ -124,34 +124,34 @@ func (c Client) GetAlbums() ([]Album, error) {
 func (c Client) GetAlbumAssets(id AlbumID) ([]AssetMetadata, error) {
 	log := slog.With("id", id)
 	{
-		assets, err := c.cache.GetAlbumAssets(id)
+		resp, err := c.cache.GetAlbumAssets(id)
 		if err == nil {
 			log.Debug("found album asset metadata in cache", "id", id)
-			return assets, nil
+			return resp.AssetMetadatas, nil
 		}
 		log.Debug("failed to get album asset metadata from cache", "id", id, "error", err)
 	}
 	{
-		assets, err := c.local.GetAlbumAssets(id)
+		resp, err := c.local.GetAlbumAssets(id)
 		if err == nil {
 			log.Debug("found album asset metadata in local storage", "id", id)
-			_ = c.cache.StoreAlbumAssets(id, assets)
-			return assets, nil
+			_ = c.cache.StoreAlbumAssets(id, *resp)
+			return resp.AssetMetadatas, nil
 		}
 		log.Debug("failed to get album asset metadata from local storage", "id", id, "error", err)
 	}
 	{
 		log.Info("fetching album asset metadata from remote", "id", id)
-		assets, err := c.remote.GetAlbumAssets(id)
+		resp, err := c.remote.GetAlbumAssets(id)
 		if err == nil {
 			log.Debug("fetched album asset metadata from remote", "id", id)
-			_ = c.cache.StoreAlbumAssets(id, assets)
-			_ = c.local.StoreAlbumAssets(id, assets)
-			return assets, nil
+			_ = c.cache.StoreAlbumAssets(id, *resp)
+			_ = c.local.StoreAlbumAssets(id, *resp)
+			return resp.AssetMetadatas, nil
 		}
 		log.Debug("failed to get album asset metadata from remote", "id", id, "error", err)
 	}
-	return nil, errors.New("could not get album assets")
+	return nil, errors.New("could not get album asset metadata")
 }
 
 // clientOpt is used for configuring the [Client].
@@ -220,10 +220,12 @@ func albumsKey() string          { return "albums" }
 // clients.
 type noopClient struct{}
 
-func (noopClient) GetAlbumAssets(AlbumID) ([]AssetMetadata, error) { return nil, errors.New("noop") }
-func (noopClient) GetAlbums() (*GetAlbumsResponse, error)          { return nil, errors.New("noop") }
-func (noopClient) GetAsset(AssetMetadata) (*Asset, error)          { return nil, errors.New("noop") }
-func (noopClient) IsConnected() error                              { return errors.New("noop") }
-func (noopClient) StoreAlbumAssets(AlbumID, []AssetMetadata) error { return errors.New("noop") }
-func (noopClient) StoreAlbums(GetAlbumsResponse) error             { return errors.New("noop") }
-func (noopClient) StoreAsset(*Asset) error                         { return errors.New("noop") }
+func (noopClient) GetAlbumAssets(AlbumID) (*GetAlbumAssetsResponse, error) {
+	return nil, errors.New("noop")
+}
+func (noopClient) GetAlbums() (*GetAlbumsResponse, error)                 { return nil, errors.New("noop") }
+func (noopClient) GetAsset(AssetMetadata) (*Asset, error)                 { return nil, errors.New("noop") }
+func (noopClient) IsConnected() error                                     { return errors.New("noop") }
+func (noopClient) StoreAlbumAssets(AlbumID, GetAlbumAssetsResponse) error { return errors.New("noop") }
+func (noopClient) StoreAlbums(GetAlbumsResponse) error                    { return errors.New("noop") }
+func (noopClient) StoreAsset(*Asset) error                                { return errors.New("noop") }

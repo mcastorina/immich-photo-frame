@@ -14,24 +14,24 @@ type localStorageClient struct {
 
 // GetAlbumAssets attempts to retrieve the asset metadata for the given album
 // from the filesystem. An error is returned if the data is not available.
-func (l localStorageClient) GetAlbumAssets(id AlbumID) ([]AssetMetadata, error) {
+func (l localStorageClient) GetAlbumAssets(id AlbumID) (*GetAlbumAssetsResponse, error) {
 	key := albumKey(id)
 	data, err := l.get(key)
 	if err != nil {
 		return nil, err
 	}
-	var assets []AssetMetadata
-	if err := json.Unmarshal(data, &assets); err != nil {
+	var resp GetAlbumAssetsResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
 		return nil, err
 	}
-	return assets, nil
+	return &resp, nil
 }
 
 // StoreAlbumAssets attempts to write the asset metadata for the given album to
 // the filesystem.
-func (l localStorageClient) StoreAlbumAssets(id AlbumID, assets []AssetMetadata) error {
+func (l localStorageClient) StoreAlbumAssets(id AlbumID, resp GetAlbumAssetsResponse) error {
 	key := albumKey(id)
-	data, err := json.Marshal(assets)
+	data, err := json.Marshal(resp)
 	if err != nil {
 		return err
 	}

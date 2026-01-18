@@ -46,10 +46,16 @@ func (c Client) GetAlbums() (*GetAlbumsResponse, error) {
 	}, nil
 }
 
+// GetAlbumsAssetsResponse wraps the immich API response with some metadata.
+type GetAlbumsAssetsResponse struct {
+	ResponseTime   time.Time
+	AssetMetadatas []AssetMetadata
+}
+
 // GetAlbumAssets retrieves the album asset metadata for the provided album ID.
 //
 // See: https://api.immich.app/endpoints/albums/getAlbumInfo
-func (c Client) GetAlbumAssets(id AlbumID) ([]AssetMetadata, error) {
+func (c Client) GetAlbumAssets(id AlbumID) (*GetAlbumsAssetsResponse, error) {
 	resp, err := c.Get(path.Join("/albums", string(id)))
 	if err != nil {
 		return nil, err
@@ -62,5 +68,8 @@ func (c Client) GetAlbumAssets(id AlbumID) ([]AssetMetadata, error) {
 	if err := json.NewDecoder(resp.Body).Decode(&ar); err != nil {
 		return nil, err
 	}
-	return ar.Assets, nil
+	return &GetAlbumsAssetsResponse{
+		ResponseTime:   time.Now(),
+		AssetMetadatas: ar.Assets,
+	}, nil
 }

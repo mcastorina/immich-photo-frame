@@ -18,31 +18,33 @@ type inMemoryCache struct {
 
 // GetAlbumAssets attempts to retrieve the asset metadata for the given album
 // from the cache. An error is returned if the data is not available.
-func (i inMemoryCache) GetAlbumAssets(id AlbumID) ([]AssetMetadata, error) {
+func (i inMemoryCache) GetAlbumAssets(id AlbumID) (*GetAlbumAssetsResponse, error) {
 	key := albumKey(id)
 	val, err := i.get(key)
 	if err != nil {
 		return nil, err
 	}
-	assets, ok := val.([]AssetMetadata)
+	resp, ok := val.(GetAlbumAssetsResponse)
 	if !ok {
 		return nil, fmt.Errorf("unexpected album asset type: %T", val)
 	}
 
 	// Make a copy so the cache cannot be modified.
-	assetCopy := make([]AssetMetadata, len(assets))
-	copy(assetCopy, assets)
-	return assetCopy, nil
+	assetCopy := make([]AssetMetadata, len(resp.AssetMetadatas))
+	copy(assetCopy, resp.AssetMetadatas)
+	resp.AssetMetadatas = assetCopy
+	return &resp, nil
 }
 
 // StoreAlbumAssets writes the asset metadata for the given album to the cache.
-func (i inMemoryCache) StoreAlbumAssets(id AlbumID, assets []AssetMetadata) error {
+func (i inMemoryCache) StoreAlbumAssets(id AlbumID, resp GetAlbumAssetsResponse) error {
 	// Make a copy so the cache cannot be modified.
-	assetCopy := make([]AssetMetadata, len(assets))
-	copy(assetCopy, assets)
+	assetCopy := make([]AssetMetadata, len(resp.AssetMetadatas))
+	copy(assetCopy, resp.AssetMetadatas)
+	resp.AssetMetadatas = assetCopy
 
 	key := albumKey(id)
-	i.Add(key, assetCopy)
+	i.Add(key, resp)
 	return nil
 }
 
