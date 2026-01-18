@@ -65,7 +65,9 @@ func (c Client) GetAsset(md AssetMetadata) (*Asset, error) {
 		ass, err := c.local.GetAsset(md)
 		if err == nil {
 			log.Debug("found asset in local storage", "size", humanize.Bytes(uint64(len(ass.Data))))
-			_ = c.cache.StoreAsset(ass)
+			if err := c.cache.StoreAsset(ass); err != nil {
+				log.Debug("failed to store asset in cache", "error", err)
+			}
 			return ass, nil
 		}
 		log.Debug("failed to get asset from local storage", "error", err)
@@ -75,8 +77,12 @@ func (c Client) GetAsset(md AssetMetadata) (*Asset, error) {
 		ass, err := c.remote.GetAsset(md)
 		if err == nil {
 			log.Info("fetched asset from remote", "size", humanize.Bytes(uint64(len(ass.Data))))
-			_ = c.cache.StoreAsset(ass)
-			_ = c.local.StoreAsset(ass)
+			if err := c.cache.StoreAsset(ass); err != nil {
+				log.Debug("failed to store asset in cache", "error", err)
+			}
+			if err := c.local.StoreAsset(ass); err != nil {
+				log.Debug("failed to store asset in local storage", "error", err)
+			}
 			return ass, nil
 		}
 		log.Debug("failed to get asset from remote", "error", err)
@@ -111,7 +117,9 @@ func (c Client) GetAlbums() ([]Album, error) {
 			slog.Debug("found albums in local storage",
 				"age", time.Since(resp.ResponseTime).String(),
 				"maxAge", c.refreshInterval.String())
-			_ = c.cache.StoreAlbums(*resp)
+			if err := c.cache.StoreAlbums(*resp); err != nil {
+				slog.Debug("failed to store albums in cache", "error", err)
+			}
 			return resp.Albums, nil
 		} else if err == nil {
 			slog.Debug("found stale albums in local storage",
@@ -127,8 +135,12 @@ func (c Client) GetAlbums() ([]Album, error) {
 		resp, err := c.remote.GetAlbums()
 		if err == nil {
 			slog.Debug("fetched albums from remote")
-			_ = c.cache.StoreAlbums(*resp)
-			_ = c.local.StoreAlbums(*resp)
+			if err := c.cache.StoreAlbums(*resp); err != nil {
+				slog.Debug("failed to store albums in cache", "error", err)
+			}
+			if err := c.local.StoreAlbums(*resp); err != nil {
+				slog.Debug("failed to store albums in local storage", "error", err)
+			}
 			return resp.Albums, nil
 		}
 		slog.Debug("failed to get albums from remote", "error", err)
@@ -171,7 +183,9 @@ func (c Client) GetAlbumAssets(id AlbumID) ([]AssetMetadata, error) {
 			log.Debug("found album asset metadata in local storage",
 				"age", time.Since(resp.ResponseTime).String(),
 				"maxAge", c.refreshInterval.String())
-			_ = c.cache.StoreAlbumAssets(id, *resp)
+			if err := c.cache.StoreAlbumAssets(id, *resp); err != nil {
+				log.Debug("failed to store album asset metadata in cache", "error", err)
+			}
 			return resp.AssetMetadatas, nil
 		} else if err == nil {
 			log.Debug("found stale album asset metadata in local storage",
@@ -187,8 +201,12 @@ func (c Client) GetAlbumAssets(id AlbumID) ([]AssetMetadata, error) {
 		resp, err := c.remote.GetAlbumAssets(id)
 		if err == nil {
 			log.Debug("fetched album asset metadata from remote")
-			_ = c.cache.StoreAlbumAssets(id, *resp)
-			_ = c.local.StoreAlbumAssets(id, *resp)
+			if err := c.cache.StoreAlbumAssets(id, *resp); err != nil {
+				log.Debug("failed to store album asset metadata in cache", "error", err)
+			}
+			if err := c.local.StoreAlbumAssets(id, *resp); err != nil {
+				log.Debug("failed to store album asset metadata in local storage", "error", err)
+			}
 			return resp.AssetMetadatas, nil
 		}
 		log.Debug("failed to get album asset metadata from remote", "error", err)
