@@ -148,26 +148,39 @@ func (c Client) GetAlbums() ([]Album, error) {
 // storage are updates.
 func (c Client) GetAlbumAssets(id AlbumID) ([]AssetMetadata, error) {
 	log := slog.With("id", id)
+	var foundResp *GetAlbumAssetsResponse
 	{
 		resp, err := c.cache.GetAlbumAssets(id)
-		if err == nil {
+		if err == nil && !c.shouldRefresh(resp.ResponseTime) {
 			log.Debug("found album asset metadata in cache",
 				"age", time.Since(resp.ResponseTime).String(),
 				"maxAge", c.refreshInterval.String())
 			return resp.AssetMetadatas, nil
+		} else if err == nil {
+			log.Debug("found stale album asset metadata in cache",
+				"age", time.Since(resp.ResponseTime).String(),
+				"maxAge", c.refreshInterval.String())
+			foundResp = resp
+		} else {
+			log.Debug("failed to get album asset metadata from cache", "error", err)
 		}
-		log.Debug("failed to get album asset metadata from cache", "error", err)
 	}
 	{
 		resp, err := c.local.GetAlbumAssets(id)
-		if err == nil {
+		if err == nil && !c.shouldRefresh(resp.ResponseTime) {
 			log.Debug("found album asset metadata in local storage",
 				"age", time.Since(resp.ResponseTime).String(),
 				"maxAge", c.refreshInterval.String())
 			_ = c.cache.StoreAlbumAssets(id, *resp)
 			return resp.AssetMetadatas, nil
+		} else if err == nil {
+			log.Debug("found stale album asset metadata in local storage",
+				"age", time.Since(resp.ResponseTime).String(),
+				"maxAge", c.refreshInterval.String())
+			foundResp = resp
+		} else {
+			log.Debug("failed to get album asset metadata from local storage", "error", err)
 		}
-		log.Debug("failed to get album asset metadata from local storage", "error", err)
 	}
 	{
 		log.Info("fetching album asset metadata from remote")
@@ -179,6 +192,12 @@ func (c Client) GetAlbumAssets(id AlbumID) ([]AssetMetadata, error) {
 			return resp.AssetMetadatas, nil
 		}
 		log.Debug("failed to get album asset metadata from remote", "error", err)
+	}
+	if foundResp != nil {
+		log.Debug("failed to get album asset metadata, using stale response",
+			"age", time.Since(foundResp.ResponseTime).String(),
+			"maxAge", c.refreshInterval.String())
+		return foundResp.AssetMetadatas, nil
 	}
 	return nil, errors.New("could not get album asset metadata")
 }
