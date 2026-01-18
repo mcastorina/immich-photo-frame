@@ -32,6 +32,7 @@ var (
 	// configured.
 	planAlgorithms = []PlanIter{
 		new(Sequential),
+		new(Shuffle),
 	}
 
 	// planAlgorithmsByName is a LUT of name to PlanIter, built via [init].

@@ -46,6 +46,8 @@ Below is a list of the existing algorithms followed by a short description.
 
 * **sequential:** Albums are iterated in the order they are configured and
   assets are iterated in the order the immich server specifies.
+* **shuffle:** All assets from all albums are shuffled and shown once before
+  shuffling again.
 
 ### Remote
 
