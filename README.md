@@ -92,7 +92,7 @@ To build and run for local development:
 
 ```bash
 go build -o ipf .
-./ipf
+./ipf --debug
 ```
 
 ## Raspberry Pi
