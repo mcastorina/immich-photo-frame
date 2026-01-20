@@ -98,7 +98,9 @@ func (c *Controller) Run() {
 				c.prevHistory()
 			}
 		}
-		c.disp.Show(c.currentAsset())
+		if ass := c.currentAsset(); ass.Img != nil {
+			c.disp.Show(ass)
+		}
 	}
 }
 
@@ -140,14 +142,21 @@ func (c *Controller) nextAssetFromPlan() (*display.DecodedAsset, error) {
 			slog.Error("failed to get next asset metadata from planner")
 			continue
 		}
+		log := slog.With("id", md.ID, "name", md.Name)
+		if md.Type != "IMAGE" {
+			// Skip non-image assets even though retrieving the preview of it
+			// is still an image that can be displayed.
+			log.Debug("skipping unsupported non-image asset", "type", md.Type)
+			continue
+		}
 		ass, err := c.client.GetAsset(*md)
 		if err != nil {
-			slog.Error("failed to get asset", "name", md.Name, "id", md.ID)
+			log.Error("failed to get asset")
 			continue
 		}
 		da, err := c.disp.DecodeAsset(ass)
 		if err != nil {
-			slog.Error("failed to decode asset", "name", md.Name, "id", md.ID)
+			log.Error("failed to decode asset")
 			continue
 		}
 		return da, nil
