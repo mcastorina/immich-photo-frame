@@ -3,6 +3,7 @@ package display
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"image"
 	"image/color"
 	"log/slog"
@@ -35,10 +36,11 @@ type Config struct {
 // Display controls the actual GUI application, such as the window, image, and
 // text overrlay.
 type Display struct {
-	conf Config
-	win  fyne.Window
-	img  *canvas.Image
-	text *canvas.Text
+	conf     Config
+	win      fyne.Window
+	img      *canvas.Image
+	dateText *canvas.Text
+	locText  *canvas.Text
 }
 
 // DecodedAsset is an asset that is ready to be displayed.
@@ -61,21 +63,30 @@ func New(conf Config) *Display {
 	img.FillMode = canvas.ImageFillContain
 	img.ScaleMode = canvas.ImageScaleSmooth
 
-	text := canvas.NewText("", color.White)
-	text.TextSize = 20
-	text.Alignment = fyne.TextAlignCenter
+	dateText := canvas.NewText("", color.White)
+	dateText.TextSize = 20
+	dateText.Alignment = fyne.TextAlignTrailing
+
+	locText := canvas.NewText("", color.White)
+	locText.TextSize = 16
+	locText.Alignment = fyne.TextAlignTrailing
+
+	textBlock := container.NewVBox(
+		locText,
+		dateText,
+	)
 
 	// Create a container with the image and bottom-right aligned text.
 	content := container.NewStack(
 		img,
 		container.NewBorder(nil,
-			container.NewHBox(layout.NewSpacer(), text),
+			container.NewHBox(layout.NewSpacer(), textBlock),
 			nil, nil),
 		hiddenCursorOverlay{},
 	)
 	win.SetContent(content)
 
-	return &Display{conf, win, img, text}
+	return &Display{conf, win, img, dateText, locText}
 }
 
 // SetKeyBinds registers the provided callback to be executed when a key is
@@ -89,9 +100,11 @@ func (d *Display) Show(da DecodedAsset) {
 	fyne.Do(func() {
 		slog.Info("displaying image", "name", da.Meta.Name, "id", da.Meta.ID)
 		d.img.Image = da.Img
-		d.text.Text = d.formattedDateTime(da.Meta.ExifInfo)
+		d.dateText.Text = d.formattedDateTime(da.Meta.ExifInfo)
+		d.locText.Text = d.formattedLocation(da.Meta.ExifInfo)
 		d.img.Refresh()
-		d.text.Refresh()
+		d.dateText.Refresh()
+		d.locText.Refresh()
 	})
 }
 
@@ -154,6 +167,24 @@ func (d *Display) formattedDateTime(exifInfo immich.ExifInfo) string {
 	default:
 		return t.Format("January 2, 2006")
 	}
+}
+
+func (d *Display) formattedLocation(exifInfo immich.ExifInfo) string {
+	const usa = "United States of America"
+	city, state, country := exifInfo.City, exifInfo.State, exifInfo.Country
+	switch {
+	case country != usa && country != "" && city != "":
+		return fmt.Sprintf("%s, %s", city, country)
+	case country != usa && country != "":
+		return country
+	case country == usa && city != "" && state != "":
+		return fmt.Sprintf("%s, %s", city, state)
+	case country == usa && city != "":
+		return city
+	case country == usa && state != "":
+		return state
+	}
+	return ""
 }
 
 // parseTimeZone is a helper function to parse the EXIF timezone string into a
