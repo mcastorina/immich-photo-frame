@@ -9,7 +9,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"github.com/BurntSushi/toml"
-	_ "github.com/gen2brain/heic"
 
 	"immich-photo-frame/internal/app/controller"
 	"immich-photo-frame/internal/app/controller/planners"

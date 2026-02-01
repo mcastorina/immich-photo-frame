@@ -16,6 +16,7 @@ import (
 	"fyne.io/fyne/v2/theme"
 
 	"github.com/disintegration/imaging"
+	_ "github.com/gen2brain/heic"
 
 	"immich-photo-frame/internal/app/formatters"
 	"immich-photo-frame/internal/immich"
