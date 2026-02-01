@@ -2,14 +2,10 @@ package display
 
 import (
 	"bytes"
-	"errors"
-	"fmt"
 	"image"
 	"image/color"
 	"log/slog"
 	"math"
-	"strconv"
-	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -20,8 +16,8 @@ import (
 	"fyne.io/fyne/v2/theme"
 
 	"github.com/disintegration/imaging"
-	"github.com/dustin/go-humanize"
 
+	"immich-photo-frame/internal/app/formatters"
 	"immich-photo-frame/internal/immich"
 )
 
@@ -31,16 +27,16 @@ import (
 // not handle parsing and has no expectation on how it will be initialized.
 type Config struct {
 	ImageScale float32
+	ImageText  []formatters.FormatConfig
 }
 
 // Display controls the actual GUI application, such as the window, image, and
 // text overrlay.
 type Display struct {
-	conf     Config
-	win      fyne.Window
-	img      *canvas.Image
-	dateText *canvas.Text
-	locText  *canvas.Text
+	conf  Config
+	win   fyne.Window
+	img   *canvas.Image
+	texts []*canvas.Text
 }
 
 // DecodedAsset is an asset that is ready to be displayed.
@@ -63,18 +59,16 @@ func New(conf Config) *Display {
 	img.FillMode = canvas.ImageFillContain
 	img.ScaleMode = canvas.ImageScaleSmooth
 
-	dateText := canvas.NewText("", color.White)
-	dateText.TextSize = 20
-	dateText.Alignment = fyne.TextAlignTrailing
+	texts := make([]*canvas.Text, len(conf.ImageText))
+	textObjs := make([]fyne.CanvasObject, len(conf.ImageText))
+	for i := range len(conf.ImageText) {
+		texts[i] = canvas.NewText("", color.White)
+		texts[i].Alignment = fyne.TextAlignTrailing
+		texts[i].TextSize = conf.ImageText[i].Size()
+		textObjs[i] = texts[i]
+	}
 
-	locText := canvas.NewText("", color.White)
-	locText.TextSize = 16
-	locText.Alignment = fyne.TextAlignTrailing
-
-	textBlock := container.NewVBox(
-		locText,
-		dateText,
-	)
+	textBlock := container.NewVBox(textObjs...)
 
 	// Create a container with the image and bottom-right aligned text.
 	content := container.NewStack(
@@ -86,7 +80,7 @@ func New(conf Config) *Display {
 	)
 	win.SetContent(content)
 
-	return &Display{conf, win, img, dateText, locText}
+	return &Display{conf, win, img, texts}
 }
 
 // SetKeyBinds registers the provided callback to be executed when a key is
@@ -100,11 +94,11 @@ func (d *Display) Show(da DecodedAsset) {
 	fyne.Do(func() {
 		slog.Info("displaying image", "name", da.Meta.Name, "id", da.Meta.ID)
 		d.img.Image = da.Img
-		d.dateText.Text = d.formattedDateTime(da.Meta.ExifInfo)
-		d.locText.Text = d.formattedLocation(da.Meta.ExifInfo)
 		d.img.Refresh()
-		d.dateText.Refresh()
-		d.locText.Refresh()
+		for i := range d.texts {
+			d.texts[i].Text = d.conf.ImageText[i].Format(da.Meta)
+			d.texts[i].Refresh()
+		}
 	})
 }
 
@@ -131,82 +125,6 @@ func (d *Display) DecodeAsset(ass *immich.Asset) (*DecodedAsset, error) {
 // called from the main thread and blocks until the application is closed.
 func (d *Display) ShowAndRun() {
 	d.win.ShowAndRun()
-}
-
-// formattedDateTime is a helper method to format the EXIF time information
-// into human-readable text.
-func (d *Display) formattedDateTime(exifInfo immich.ExifInfo) string {
-	// Parse EXIF timestamp.
-	t, err := time.Parse("2006-01-02T15:04:05.999Z07:00", exifInfo.DateTimeOriginal)
-	if err != nil {
-		slog.Error("failed to parse timestamp",
-			"error", err,
-			"timezone", exifInfo.DateTimeOriginal,
-		)
-		return ""
-	}
-
-	// Parse EXIF timezone.
-	loc, err := parseTimeZone(exifInfo.TimeZone)
-	if err != nil {
-		slog.Error("failed to parse timezone",
-			"error", err,
-			"timezone", exifInfo.TimeZone,
-		)
-		return ""
-	}
-	t = t.In(loc)
-
-	// Format based on how long ago the asset was.
-	elapsed := time.Since(t)
-	switch {
-	case elapsed < 1*humanize.Week:
-		return t.Format("Monday 3:04 PM")
-	case elapsed < 3*humanize.Month:
-		return humanize.Time(t)
-	default:
-		return t.Format("January 2, 2006")
-	}
-}
-
-func (d *Display) formattedLocation(exifInfo immich.ExifInfo) string {
-	const usa = "United States of America"
-	city, state, country := exifInfo.City, exifInfo.State, exifInfo.Country
-	switch {
-	case country != usa && country != "" && city != "":
-		return fmt.Sprintf("%s, %s", city, country)
-	case country != usa && country != "":
-		return country
-	case country == usa && city != "" && state != "":
-		return fmt.Sprintf("%s, %s", city, state)
-	case country == usa && city != "":
-		return city
-	case country == usa && state != "":
-		return state
-	}
-	return ""
-}
-
-// parseTimeZone is a helper function to parse the EXIF timezone string into a
-// time.Location. It first tries to load the location directly, and if that
-// doesn't work, it tries parsing it as a UTC offset.
-func parseTimeZone(tz string) (*time.Location, error) {
-	// First try loading it as a location.
-	if loc, err := time.LoadLocation(tz); err == nil {
-		return loc, nil
-	}
-	// Then try parsing it as a UTC offset in the format "UTC-6" or "UTC+9"
-	if len(tz) < 4 || tz[:3] != "UTC" {
-		return nil, errors.New("unexpected timezone format")
-	}
-
-	hours, err := strconv.Atoi(tz[3:])
-	if err != nil {
-		return nil, err
-	}
-
-	seconds := hours * 60 * 60
-	return time.FixedZone(tz, seconds), nil
 }
 
 // hiddenCursorOverlay implements fyne.CanvasObject and desktop.Cursorable to
