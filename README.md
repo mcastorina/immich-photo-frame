@@ -38,6 +38,7 @@ The `app` section configures how the application will run.
 | `historySize` | int | `10` | How many images to keep for going backwards |
 | `planAlgorithm` | string | `sequential` | Algorithm for advancing through configured albums and assets |
 | `immichAlbumRefreshInterval` | string | `24h` | Amount of time before checking the immich server for new albums and assets (in human-readable text) |
+| `imageText` | []string | `["image-date-time:20", "image-location:16"]` | Text configuration to display on-screen |
 
 #### Plan Algorithms
 
@@ -48,6 +49,25 @@ Below is a list of the existing algorithms followed by a short description.
   assets are iterated in the order the immich server specifies.
 * **shuffle:** All assets from all albums are shuffled and shown once before
   shuffling again.
+
+#### Text Configuration
+
+Text is configured via the `imageText` attribute as an array of strings. The
+order of the strings represents the line from top to bottom. The string expects
+a format of `"name:size"`, where `name` is the name of a text formatter and
+`size` is the `float32` text font size, which defaults to `16` if not
+specified. Below is a list of existing text formatters followed by a short
+description.
+
+* **image-date-time:** Date and time when the image was taken, according to its
+  EXIF data, with some custom formatting:
+  * If the date is within 1 week of the current time, display the weekday and
+    time.
+  * If the date is within 3 months of the current time, display a relative
+    offset.
+  * Otherwise, display just the date.
+* **image-location:** Location where the image was taken, according to its EXIF
+  data.
 
 ### Remote
 
