@@ -48,7 +48,7 @@ func (p *PlanAlgorithm) UnmarshalText(text []byte) error {
 	}
 	var validAlgos []string
 	for key := range planAlgorithmsByName {
-		validAlgos = append(validAlgos, key)
+		validAlgos = append(validAlgos, fmt.Sprintf("%q", key))
 	}
 	return fmt.Errorf(
 		"unsupported plan algorithm %q, expected one of %v",
