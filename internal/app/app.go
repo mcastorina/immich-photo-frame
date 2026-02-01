@@ -13,6 +13,7 @@ import (
 	"immich-photo-frame/internal/app/controller"
 	"immich-photo-frame/internal/app/controller/planners"
 	"immich-photo-frame/internal/app/display"
+	"immich-photo-frame/internal/app/formatters"
 	"immich-photo-frame/internal/immich"
 )
 
@@ -93,8 +94,12 @@ func LoadConfig() (*Config, error) {
 	conf.App.ImageDelay = 5 * time.Second
 	conf.App.ImageScale = 1
 	conf.App.HistorySize = 10
-	conf.App.PlanAlgorithm.PlanIter = &planners.Sequential{}
+	conf.App.PlanAlgorithm.PlanIter = new(planners.Sequential)
 	conf.App.ImmichAlbumRefreshInterval = 24 * time.Hour
+	conf.App.ImageText = []formatters.FormatConfig{
+		{TextSizeFormatter: formatters.NewSizeWrapper(new(formatters.ImageDateTime), 20)},
+		{TextSizeFormatter: formatters.NewSizeWrapper(new(formatters.ImageLocation), 16)},
+	}
 
 	// TOML-decode config file contents.
 	if _, err := toml.DecodeFile(configFilePath, &conf); err != nil {

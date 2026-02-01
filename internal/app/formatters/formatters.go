@@ -28,6 +28,10 @@ type SizeWrapper struct {
 
 func (s SizeWrapper) Size() float32 { return s.size }
 
+func NewSizeWrapper(t TextFormatter, size float32) SizeWrapper {
+	return SizeWrapper{t, size}
+}
+
 var (
 	// formatters is the list of available text formatters.
 	formatters = []TextFormatter{
@@ -45,7 +49,7 @@ func (f *FormatConfig) UnmarshalText(text []byte) error {
 	if err == nil {
 		fc, ok := formattersByName[name]
 		if ok {
-			f.TextSizeFormatter = SizeWrapper{TextFormatter: fc, size: size}
+			f.TextSizeFormatter = NewSizeWrapper(fc, size)
 			return nil
 		}
 	}
