@@ -40,8 +40,9 @@ type Controller struct {
 	client *immich.Client
 	cmd    chan cmd
 	// TODO: Should we only store asset metadata since we can get the DecodedAsset from that?
-	history      []display.DecodedAsset
-	historyIndex int
+	bufferedAssets <-chan *display.DecodedAsset
+	history        []display.DecodedAsset
+	historyIndex   int
 }
 
 // New initializes the Controller. An error is returned if it could not find
@@ -55,15 +56,31 @@ func New(conf Config, client *immich.Client, disp *display.Display) (*Controller
 	if n := countAssets(albums); n == 0 {
 		return nil, errors.New("no assets found")
 	}
-	return &Controller{
+	bufferedAssets := make(chan *display.DecodedAsset, 1)
+	ctrl := &Controller{
 		conf:             conf,
 		configuredAlbums: albums,
 		disp:             disp,
 		client:           client,
 		cmd:              make(chan cmd, 10),
+		bufferedAssets:   bufferedAssets,
 		history:          make([]display.DecodedAsset, conf.HistorySize+1),
 		historyIndex:     conf.HistorySize,
-	}, nil
+	}
+	// A controller is meant to run forever and currently does not support
+	// any sort of clean up or graceful shutdown, so for now we can just
+	// spawn this worker here without tracking its life.
+	go func() {
+		for {
+			ass, err := ctrl.nextAssetFromPlan()
+			if err != nil {
+				slog.Error("failed to buffer next asset", "error", err)
+				continue
+			}
+			bufferedAssets <- ass
+		}
+	}()
+	return ctrl, nil
 }
 
 // Next requests that the next asset be shown immediately.
@@ -116,11 +133,7 @@ func (c *Controller) nextHistory() {
 		c.historyIndex++
 		return
 	}
-	da, err := c.nextAssetFromPlan()
-	if err != nil {
-		slog.Error("failed to advance", "error", err)
-		return
-	}
+	da := <-c.bufferedAssets
 	c.history = append(c.history, *da)
 	c.history = c.history[1:]
 }
