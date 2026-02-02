@@ -97,8 +97,8 @@ func LoadConfig() (*Config, error) {
 	conf.App.PlanAlgorithm.PlanIter = new(planners.Sequential)
 	conf.App.ImmichAlbumRefreshInterval = 24 * time.Hour
 	conf.App.ImageText = []formatters.FormatConfig{
-		{TextSizeFormatter: formatters.NewSizeWrapper(new(formatters.ImageDateTime), 20)},
 		{TextSizeFormatter: formatters.NewSizeWrapper(new(formatters.ImageLocation), 16)},
+		{TextSizeFormatter: formatters.NewSizeWrapper(new(formatters.ImageDateTime), 20)},
 	}
 
 	// TOML-decode config file contents.

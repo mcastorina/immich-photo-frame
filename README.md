@@ -38,7 +38,7 @@ The `app` section configures how the application will run.
 | `historySize` | int | `10` | How many images to keep for going backwards |
 | `planAlgorithm` | string | `sequential` | Algorithm for advancing through configured albums and assets |
 | `immichAlbumRefreshInterval` | string | `24h` | Amount of time before checking the immich server for new albums and assets (in human-readable text) |
-| `imageText` | []string | `["image-date-time:20", "image-location:16"]` | Text configuration to display on-screen |
+| `imageText` | []string | `["image-location:16", "image-date-time:20"]` | Text configuration to display on-screen |
 
 #### Plan Algorithms
 
