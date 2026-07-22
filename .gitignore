@@ -1,3 +1,5 @@
 .env
 ipf
 config.toml
+.envrc
+.direnv
