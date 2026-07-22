@@ -147,3 +147,30 @@ go build -o ipf .
 
 DISPLAY=:0 ./ipf
 ```
+
+## Remote Development
+
+To render on a remote (Linux) machine and view the application over VNC:
+
+* Connect over SSH with port 5900 forwarded
+  ```bash
+  ssh -L 5900:localhost:5900 user@machine
+  ```
+* Setup a VNC password on the remote (only needs to happen once)
+  ```bash
+  x11vnc -storepasswd my-super-secret-password ~/.vnc/passwd
+  ```
+* Run the application
+  ```bash
+  # Create a virtual screen on display :99
+  Xvfb :99 -screen 0 1920x1080x24 &
+
+  # Start the VNC server
+  x11vnc -display :99 -rfbauth ~/.vnc/passwd -localhost -forever -bg
+
+  # Start the application
+  export DISPLAY=:99
+  export LIBGL_ALWAYS_SOFTWARE=1
+  ./ipf
+  ```
+* Connect to VNC on `vnc://localhost:5900` from your host

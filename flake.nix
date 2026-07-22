@@ -24,6 +24,11 @@
         libxi
         libxxf86vm
         libxcursor
+        # Headless display for running the Fyne app over SSH/VNC.
+        xorgserver
+        x11vnc
+        mesa
+        mesa-demos
       ];
     };
   };
