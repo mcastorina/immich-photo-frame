@@ -17,6 +17,10 @@ import (
 	"immich-photo-frame/internal/immich"
 )
 
+var (
+	configNotFound error = errors.New("config file not found")
+)
+
 // Config is the top-level configuration struct that is loaded via TOML
 // decoding of the file specified by the IMMICH_PHOTO_FRAME_CONFIG environment
 // variable (or "config.toml" if empty).
@@ -63,7 +67,9 @@ func (pf *photoFrame) run() error {
 
 func Run() error {
 	conf, err := LoadConfig()
-	if err != nil {
+	if errors.Is(err, configNotFound) {
+		return fmt.Errorf("config not found, please create config.toml or set IMMICH_PHOTO_FRAME_CONFIG")
+	} else if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 	// Debug level since conf has sensitive values.
@@ -84,7 +90,7 @@ func LoadConfig() (*Config, error) {
 		configFilePath = envConfigFilePath
 	}
 	if _, err := os.Stat(configFilePath); os.IsNotExist(err) {
-		return nil, errors.New("config file not found")
+		return nil, configNotFound
 	} else if err != nil {
 		return nil, err
 	}
